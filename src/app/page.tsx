@@ -23,45 +23,44 @@ export default function Home() {
           className="font-display font-bold gold-shimmer leading-tight mb-1"
           style={{ fontSize: "clamp(2.25rem, 11vw, 3rem)" }}
         >
-          Date Night Games
+          drinking games 🎉
         </h1>
         <p
           className="font-body text-cream/60"
           style={{ fontSize: "clamp(0.875rem, 4vw, 1.25rem)" }}
         >
-          Conversation run dry? Shuffle the deck.
+          Four games for the circle
         </p>
       </motion.div>
 
-      {/* Game Cards Grid */}
+      {/* Game Cards Grid — J Q K A */}
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
         <GameCard
-          title="Conversation Wheel"
-          subtitle="Spin for a topic to talk about"
-          suit="clubs"
-          href="/wheel"
+          title="Call Your Bluff"
+          subtitle="Stand if you think it's you"
+          rank="J"
+          href="/call-your-bluff"
           delay={0.1}
         />
-
         <GameCard
-          title="Never Have I Ever"
-          subtitle="How adventurous are you?"
-          suit="diamonds"
-          href="/never-have-i-ever"
-          delay={0.3}
-        />
-        <GameCard
-          title="Mr & Mrs"
-          subtitle="How well do you know each other?"
-          suit="hearts"
-          href="/mr-and-mrs"
+          title="Most Likely To"
+          subtitle="Vote anonymously"
+          rank="Q"
+          href="/most-likely-to"
           delay={0.2}
         />
         <GameCard
           title="Would You Rather"
-          subtitle="Do you think alike?"
-          suit="spades"
+          subtitle="Pick A or B"
+          rank="K"
           href="/would-you-rather"
+          delay={0.3}
+        />
+        <GameCard
+          title="Never Have I Ever"
+          subtitle="How depraved is the circle?"
+          rank="A"
+          href="/never-have-i-ever"
           delay={0.4}
         />
       </div>
@@ -71,9 +70,12 @@ export default function Home() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8, duration: 0.6 }}
-        className="mt-8"
+        className="mt-8 flex flex-col items-center gap-3"
       >
         <div className="h-px w-48 bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+        <p className="font-body text-cream/30 text-[10px]">
+          drinking games
+        </p>
       </motion.div>
     </div>
   );

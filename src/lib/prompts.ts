@@ -1,90 +1,16 @@
 import { GameId, SpiceLevel } from "./types";
 
-const SYSTEM_PROMPT = `You are a playful, romantic game host for a Valentine's Date Night. You create fun, engaging content for couples. Your tone is warm, flirty, and creative. Never be offensive or crude — even "spicy" content should be bold and intimate but tasteful. Always return ONLY valid JSON with no markdown fencing, no explanation, no extra text.`;
+const SYSTEM_PROMPT = `You are a sharp, irreverent host for "drinking games" — a group party game played in a circle of friends (3 to 16 players, mixed genders, mostly in their 20s and 30s). Your job is to write content that lands with a friend group on a night out: funny, bold, occasionally provocative, never crude for the sake of it.
+
+You are NOT writing for couples. You are NOT writing for date night. Never reference "your partner", "your date", "your relationship", "the person you're playing with", or anything that assumes the players are romantically involved. The audience is a group of friends.
+
+Always return ONLY valid JSON in the exact shape requested. No markdown fencing, no commentary, no preamble.`;
 
 export function getSystemPrompt(): string {
   return SYSTEM_PROMPT;
 }
 
 // --- Layer 1: Prompt Variants ---
-// Each variant steers the AI toward a different thematic cluster.
-// One is picked randomly per API call.
-
-const WHEEL_VARIANTS: Record<string, string[]> = {
-  "Funny Stories": [
-    "Mix of childhood, work, travel, nights out, and family stories.",
-    "Lean toward cringe moments, misunderstandings, and things that went wrong.",
-    "Lean toward stories involving other people: strangers, friends, or authority figures.",
-    "Lean toward stories with an unexpected twist or surprise ending.",
-    "Lean toward stories about being caught, exposed, or publicly embarrassed.",
-  ],
-  "Big Questions": [
-    "Mix of identity, ambition, ethics, turning points, and society.",
-    "Lean toward questions about alternate timelines and roads not taken.",
-    "Lean toward questions about beliefs, values, and what you stand for.",
-    "Lean toward questions about self-knowledge and personal blind spots.",
-    "Lean toward questions about the future and what comes next.",
-  ],
-  "Guilty Pleasures": [
-    "Mix of entertainment, food, social media, vanity, and nostalgia.",
-    "Lean toward secret habits nobody knows about.",
-    "Lean toward things you enjoy but are slightly ashamed of.",
-    "Lean toward comforts, routines, and indulgent rituals.",
-    "Lean toward throwbacks, childhood favourites, and retro obsessions.",
-  ],
-  "Hot Takes": [
-    "Mix of social norms, food opinions, relationships, work culture, and media.",
-    "Lean toward takes that would start a genuine argument.",
-    "Lean toward controversial opinions about everyday life.",
-    "Lean toward takes about modern culture that most people disagree on.",
-    "Lean toward unpopular opinions about popular things.",
-  ],
-  "Fears & Peeves": [
-    "Mix of phobias, social irritations, workplace annoyances, tech frustrations, and relationship pet peeves.",
-    "Lean toward irrational fears that are hard to explain.",
-    "Lean toward small everyday annoyances that drive you mad.",
-    "Lean toward things other people do that are secretly infuriating.",
-    "Lean toward anxieties about the future or modern life.",
-  ],
-  "Confessions": [
-    "Mix of petty behaviour, lies, hidden talents, regrets, and youthful rebellion.",
-    "Lean toward things you've never told anyone.",
-    "Lean toward things you got away with and never confessed.",
-    "Lean toward petty grudges and secret competitiveness.",
-    "Lean toward embarrassing truths about your habits or personality.",
-  ],
-  "Situationships": [
-    "Mix of dating disasters, red flags, exes, modern dating, and crush stories.",
-    "Lean toward cringe moments and awkward encounters.",
-    "Lean toward stories about misread signals and miscommunication.",
-    "Lean toward opinions about modern dating culture.",
-    "Lean toward the most unhinged dating behaviour you've witnessed.",
-  ],
-  "Wild Card": [
-    "Mix of hypotheticals, unusual experiences, money, extreme scenarios, and secrets.",
-    "Lean toward bizarre what-if questions with no easy answer.",
-    "Lean toward questions that reveal something unexpected about someone.",
-    "Lean toward thought experiments about human nature.",
-    "Lean toward questions that are impossible to answer the same way twice.",
-  ],
-};
-
-const MR_AND_MRS_VARIANTS = {
-  standard: [
-    "Focus on social behaviour, friendships, and how they act around others.",
-    "Focus on skills, talents, knowledge, and things they're good (or bad) at.",
-    "Focus on daily habits, quirks, and routines.",
-    "Focus on ambition, career, bravery, and risk-taking.",
-    "Focus on emotional reactions, personality traits, and how they handle situations.",
-  ],
-  spicy: [
-    "Focus on sexual history, preferences, and bold bedroom-related questions.",
-    "Focus on moral grey areas, dishonesty, and things they'd never want made public.",
-    "Focus on jealousy, loyalty, trust, and relationship boundaries.",
-    "Focus on wild behaviour, impulsive decisions, and reckless moments.",
-    "Focus on secrets, confessions, and things people only admit in private.",
-  ],
-};
 
 const NHIE_VARIANTS: Record<string, string[]> = {
   mild: [
@@ -141,8 +67,48 @@ const WYR_VARIANTS: Record<string, string[]> = {
   ],
 };
 
+const MLT_VARIANTS: Record<string, string[]> = {
+  silly: [
+    "Focus on chaotic night-out behaviour.",
+    "Focus on tech mishaps, social media moments, and digital embarrassment.",
+    "Focus on absurd hypothetical scenarios.",
+    "Focus on overreactions and dramatic responses to small things.",
+    "Focus on niche habits, weird tendencies, and awkward moments.",
+  ],
+  personal: [
+    "Focus on dating, exes, and romantic chaos.",
+    "Focus on dishonesty, secrecy, and things people hide.",
+    "Focus on lurking, stalking, and unhealthy social media habits.",
+    "Focus on impulsive behaviour and bad decisions.",
+    "Focus on group dynamics, gossip, and friend group chaos.",
+  ],
+  spicy: [
+    "Focus on bold sexual confessions and bedroom history.",
+    "Focus on hookups in the wrong places or with the wrong people.",
+    "Focus on dating apps, thirst traps, and modern hookup culture.",
+    "Focus on secret kinks, fetishes, and things people don't admit.",
+    "Focus on infidelity, getting caught, and morally grey hookups.",
+  ],
+};
+
+const CYB_VARIANTS: Record<string, string[]> = {
+  silly: [
+    "Focus on physical comedy traits and clumsy moments.",
+    "Focus on social/party traits — loudness, dancing, energy.",
+    "Focus on skill traits — trivia, memory, coordination, talents.",
+    "Focus on quirky habit traits — sleep, food, caffeine, routines.",
+    "Focus on charm and presence traits — storytelling, photogenic, magnetism.",
+  ],
+  personal: [
+    "Focus on physical attractiveness and presence.",
+    "Focus on social charm — charisma, confidence, magnetism.",
+    "Focus on style and presentation.",
+    "Focus on bedroom-adjacent desirability without being explicit.",
+    "Focus on ambition, success, and life-quality traits.",
+  ],
+};
+
 // --- Layer 2: Seed Phrases ---
-// A random seed phrase is appended to each call to nudge the output in unpredictable directions.
 
 const SEED_PHRASES = [
   "Make one item unexpectedly specific or niche.",
@@ -185,6 +151,7 @@ export function buildUserPrompt(
   options: {
     category?: string;
     spiceLevel?: SpiceLevel;
+    mode?: string;
     count?: number;
     exclude?: string[];
   },
@@ -193,215 +160,15 @@ export function buildUserPrompt(
   const excludeClause = buildExcludeClause(options.exclude);
 
   switch (game) {
-    case "wheel": {
-      const wheelCategoryInstructions: Record<string, string> = {
-        "Funny Stories": `Category: Funny Stories. Trigger actual anecdotes. These should make someone immediately think of a specific event they can tell as a story.
-
-Good examples:
-- "What's the most chaotic night out you've ever had?"
-- "What's a story your friends always bring up to embarrass you?"
-- "What's the worst lie you've ever told that somehow worked?"
-- "What's the most embarrassing thing you've done in a professional setting?"
-- "What's the most ridiculous thing you've ever spent money on?"
-- "What's the most absurd misunderstanding you've been involved in?"
-
-Bad examples: "Tell a funny story" (too vague), "What makes you laugh?" (too broad, not story-triggering)`,
-
-        "Big Questions": `Category: Big Questions. Life, identity, values, the future. These should make people think, not cringe.
-
-Good examples:
-- "If money was irrelevant, what would your average Tuesday look like?"
-- "What's a belief you held strongly 5 years ago that you've completely changed your mind on?"
-- "What do you think people misunderstand about you most?"
-- "What's something you want to have done before you turn 40?"
-- "When did you last feel genuinely out of your depth?"
-- "What's a part of your personality you've had to actively work on?"
-- "If you could go back to university and study something completely different, what would it be?"
-
-Bad examples: "What are your hopes and dreams?" (too vague, sappy), "Where do you see yourself in 5 years?" (job interview)`,
-
-        "Guilty Pleasures": `Category: Guilty Pleasures. Things you'd only admit after a couple of drinks. Embarrassing tastes, habits, and preferences.
-
-Good examples:
-- "What's a celebrity you find attractive that your friends would roast you for?"
-- "What's a song you'd never play in front of others but absolutely love?"
-- "What app do you waste the most time on, and how bad is the screen time?"
-- "What's a TV show you're embarrassed to admit you've watched all of?"
-- "What's a comfort food you eat that other people would judge you for?"
-- "What's a trend you secretly enjoyed even though you publicly mocked it?"
-
-Bad examples: "What's your most embarrassing guilty pleasure song that you secretly dance to when no one's watching?" (too wordy, too performative)`,
-
-        "Hot Takes": `Category: Hot Takes. Opinions that might start a friendly argument. The goal is genuine disagreement and debate.
-
-Good examples:
-- "What's a popular thing that you genuinely think is overrated?"
-- "What's an opinion you hold that most people disagree with?"
-- "What's a hill you'd die on that other people think is ridiculous?"
-- "What's a social norm you think is completely pointless?"
-- "What's something everyone seems to enjoy that you genuinely don't understand the appeal of?"
-- "What's a 'nice' thing people do that you secretly find annoying?"`,
-
-        "Fears & Peeves": `Category: Fears & Pet Peeves. Real fears and genuine irritations. Not sappy fears like "losing the people I love". Actual specific things.
-
-Good examples:
-- "What's something that terrifies you that most people aren't bothered by?"
-- "What's the most scared you've ever been?"
-- "Is there something you avoid that you know is irrational?"
-- "What's a small everyday thing that irritates you way more than it should?"
-- "What's a personality trait in other people that you just cannot deal with?"
-- "What's something that gives you the ick immediately?"`,
-
-        "Confessions": `Category: Confessions. Things you probably haven't told many people. Secrets, petty behaviour, hidden sides of yourself.
-
-Good examples:
-- "What's something you've never apologised for but probably should?"
-- "What's the pettiest thing you've ever done?"
-- "What's a secret skill or hobby you have that most people don't know about?"
-- "What's something you did that you still can't believe you got away with?"
-- "What's a lie you've maintained for so long that it would be weird to correct it now?"
-- "Have you ever completely reinvented yourself, and what triggered it?"`,
-
-        "Situationships": `Category: Situationships. Dating stories, relationship opinions, love life chaos. NOT about the two people playing. About dating in general, exes, and the absurdity of modern romance.
-
-Good examples:
-- "What's the biggest red flag you've ever ignored?"
-- "What's the worst date you've ever been on?"
-- "What's a dealbreaker for you that other people think is unreasonable?"
-- "What's the most unhinged thing you've ever done after a breakup?"
-- "What's a dating trend you think is genuinely toxic?"
-- "What's the longest situationship you've been in, and how did it end?"
-
-Bad examples: "If we could wake up tomorrow in any city together..." (assumes romantic relationship, sappy), "What first attracted you to your date?" (references the players)`,
-
-        "Wild Card": `Category: Wild Card. Anything goes. The most interesting, unexpected, or provocative questions that don't fit neatly elsewhere. Conversation grenades.
-
-Good examples:
-- "What's the most illegal thing you've done?"
-- "What's something you've done that you still can't believe you got away with?"
-- "If you had to disappear and start a new life tomorrow, where would you go and what would you do?"
-- "What's the most expensive thing you've broken that wasn't yours?"
-- "What's a decision that completely changed the direction of your life?"
-- "What's the most unhinged impulse purchase you've ever made?"`,
-      };
-
-      const catKey = options.category || "Wild Card";
-      const catInstructions = wheelCategoryInstructions[catKey] || wheelCategoryInstructions["Wild Card"];
-      const variant = pickRandom(WHEEL_VARIANTS[catKey] || WHEEL_VARIANTS["Wild Card"]);
-      const seed = getRandomSeed();
-
-      return `Generate ${count} conversation topics/questions for the specified category.
-
-${catInstructions}
-
-THEMATIC DIRECTION FOR THIS BATCH: ${variant}
-CREATIVE SEED (apply to at most 1 item, not the whole batch): ${seed}
-
-RULES (follow these strictly):
-- The ${count} items must cover a wide range of different subjects. NEVER have two items about the same topic, theme, or subject area. Diversity is critical.
-- Never use emdashes. Use parentheses if clarification is needed.
-- Never reference "your partner", "your date", "your relationship", "together", "as a couple", or anything that assumes romance.
-- Questions should be addressed to "you" (singular), not "you two" or "both of you".
-- Every topic should be a genuine conversation opener that could sustain at least 5 minutes of discussion.
-- Keep questions concise. One or two sentences max.
-- British English spelling throughout.
-- Questions should be specific enough to get an interesting answer. "What do you dream about?" is too vague. "If you could be world-class at one thing overnight, what would you pick?" is good.
-- Vary the format: some direct questions, some "what's the most...", some "have you ever...", some "what's your take on...". Don't use the same structure repeatedly.
-
-Return a JSON array of ${count} strings.${excludeClause}`;
-    }
-
-    case "mr-and-mrs": {
-      const isSpicy = options.spiceLevel === "spicy";
-      const mmVariant = pickRandom(isSpicy ? MR_AND_MRS_VARIANTS.spicy : MR_AND_MRS_VARIANTS.standard);
-      const mmSeed = getRandomSeed();
-
-      const spicyInstructions = isSpicy
-        ? `SPICY MODE. ALL questions must be sexual or morally edgy. Every item must have spicy: true. No clean/standard questions in this batch.
-
-Good spicy examples:
-- "Who has had the most sexual partners?"
-- "Who is most likely to have a threesome?"
-- "Who is most likely to cheat?"
-- "Who has the wilder search history?"
-- "Who is more likely to sleep with someone on the first date?"
-- "Who is more likely to have a secret they've never told anyone?"
-- "Who would be more likely to lie to the police?"
-- "Who is more likely to have hooked up with a friend?"
-- "Who has done the most embarrassing thing they'd never want made public?"
-- "Who is most likely to send a nude to the wrong person?"
-- "Who would be more likely to have a one-night stand with a stranger?"
-- "Who is more likely to have been the other woman/man?"
-- "Who is most likely to read their partner's messages without telling them?"
-- "Who is more likely to kiss someone else on a night out?"
-- "Who has told the bigger lie?"
-
-Spicy questions should make people squirm slightly before answering. A mix of sexually extreme and morally dubious.`
-        : `STANDARD MODE. ALL questions must be clean and non-sexual. Every item must have spicy: false. Fun, provocative, personality-revealing questions. Not sexual but not boring. These should trigger playful arguments.`;
-
-      return `Generate ${count} "Who is more likely to..." / "Who is the bigger..." / "Who would..." questions for a two-player game where both players independently pick which person the question applies to more.
-
-${spicyInstructions}
-
-THEMATIC DIRECTION FOR THIS BATCH: ${mmVariant}
-CREATIVE SEED (apply to at most 1 item, not the whole batch): ${mmSeed}
-
-Good standard examples:
-- "Who is more likely to survive a zombie apocalypse?"
-- "Who is more likely to start an argument over something petty?"
-- "Who would last longer without their phone?"
-- "Who is more likely to talk their way out of a speeding ticket?"
-- "Who is the bigger drama queen?"
-- "Who would be worse in a survival situation?"
-- "Who is more likely to accidentally go viral on social media?"
-- "Who would win in a physical fight?"
-- "Who is the bigger flirt?"
-- "Who gives better advice?"
-- "Who is more likely to quit their job on impulse?"
-- "Who would handle being arrested more calmly?"
-- "Who is more competitive?"
-- "Who is more likely to do karaoke completely sober?"
-- "Who has better stories from their teenage years?"
-- "Who is more likely to say something inappropriate at the wrong moment?"
-- "Who would be better at keeping a secret?"
-- "Who is more likely to take a board game way too seriously?"
-- "Who is the bigger risk-taker?"
-- "Who is more likely to befriend a complete stranger?"
-
-Bad examples (do NOT generate questions like these):
-- "Who is the biggest foodie?" (boring, no debate)
-- "Who is more likely to forget where they put their keys?" (mundane, no story)
-- "Who is more likely to cry during a romantic movie?" (cliche, predictable)
-- "Who is more likely to plan a surprise date?" (too romance-focused)
-- "Who is more likely to say I love you first?" (assumes romantic relationship)
-
-RULES (follow these strictly):
-- The ${count} items must cover a wide range of different subjects. NEVER have two items about the same topic, theme, or subject area. Diversity is critical.
-- Never use emdashes. Use parentheses if clarification is needed.
-- Questions must work as "[Name] or [Name]" answers.
-- Questions should work equally well for friends, new couples, or long-term couples. Never assume anything about the relationship.
-- British English spelling throughout.
-- Every question should spark a genuine debate. If both players would obviously give the same answer, the question is too easy.
-- Questions should be about the two players specifically, not hypothetical scenarios about others.
-- Keep questions concise. One sentence, no caveats or clarifications needed.
-- "Who is more likely to...", "Who would...", and "Who is the bigger..." are the right formats.
-
-The test for a good standard question: would two friends playing this game find it just as fun as a couple?
-
-Return a JSON array of ${count} objects. Each object has "question" (string) and "spicy" (boolean).
-Do NOT include any prefix (the app adds "[Name], " before displaying).
-Example: [{"question": "Who is more likely to survive a zombie apocalypse?", "spicy": false}]${excludeClause}`;
-    }
-
     case "never-have-i-ever": {
       const nhieLevel = options.spiceLevel || "mild";
       const nhieVariant = pickRandom(NHIE_VARIANTS[nhieLevel] || NHIE_VARIANTS.mild);
       const nhieSeed = getRandomSeed();
 
-      const spiceInstructions = {
+      const spiceInstructions: Record<SpiceLevel, string> = {
         mild: `MILD level. Completely non-sexual. Genuinely eventful, adventurous, or surprising things that a nice, stand-up person might have done. Still interesting and story-worthy, not boring.
 
-Good examples: "stalked someone's social media back to an embarrassing depth and accidentally liked a very old photo", "locked myself out of my own house in a truly stupid way", "hitchhiked", gone skinny dipping", "crashed a wedding", "gone swimming in the sea at night", "booked a one-way flight", "snuck in somewhere I wasn't allowed to be", "gotten a tattoo on a whim", "slept in an airport overnight", "eaten something at a market in another country with absolutely no idea what it was", "entered a competition or talent show with zero relevant skill", "been on TV or in a newspaper"
+Good examples: "stalked someone's social media back to an embarrassing depth and accidentally liked a very old photo", "locked myself out of my own house in a truly stupid way", "hitchhiked", "gone skinny dipping", "crashed a wedding", "gone swimming in the sea at night", "booked a one-way flight", "snuck in somewhere I wasn't allowed to be", "gotten a tattoo on a whim", "slept in an airport overnight", "eaten something at a market in another country with absolutely no idea what it was", "entered a competition or talent show with zero relevant skill", "been on TV or in a newspaper"
 
 Bad examples (too boring, no story): "forgotten someone's name", "cried on public transport", "waved at someone who wasn't waving at me", "pretended to understand a conversation"`,
 
@@ -422,7 +189,7 @@ Morally dark examples: "cheated on a partner", "lied to the police", "deliberate
 Bad examples (these belong in Spicy, not Villain): "had a one-night stand", "kissed a stranger", "sent a nude to the wrong person", "gone skinny dipping"`,
       };
 
-      return `Generate ${count} "Never have I ever" statement completions at the "${nhieLevel}" spice level.
+      return `Generate ${count} "Never have I ever" statement completions at the "${nhieLevel}" spice level for a GROUP party game (3-16 friends in a circle).
 
 ${spiceInstructions[nhieLevel]}
 
@@ -434,8 +201,8 @@ RULES (follow these strictly):
 - Every statement must be a single, specific thing. NEVER combine two things with "or".
 - Never use emdashes. Use parentheses if clarification is needed.
 - Statements must be specific enough to trigger a story. If someone has done it, they should immediately remember when and where. Vague, mundane things that everyone has done are bad.
-- No editorialising or commentary (no "...and honestly, no regrets" style additions). Just state the thing plainly.
-- These are NOT about the players' relationship with each other. NEVER reference "your date", "your partner", "the person you're playing with", etc. These are about things you've done in your life.
+- No editorialising or commentary. Just state the thing plainly.
+- These are written in first person ("I"), about things you have done in your life. NEVER reference "your partner", "your date", or any couples framing — the players are a group of friends, not a couple.
 - Use British English spelling throughout.
 - Each statement must be distinct from the others in the batch.
 
@@ -480,7 +247,7 @@ Good examples:
 
         cursed: `CURSED category. Both options are horrible. The reaction should be an immediate "oh NO" followed by agonised deliberation.
 
-IMPORTANT: Cursed questions are NOT silly body-modification hypotheticals like "would you rather sweat maple syrup" or "have fingers for legs". Those are Silly. Cursed means both options make you physically cringe, squirm, or feel deeply uncomfortable. Think: gross sensory experiences with real things (licking a pub floor, sharing a toothbrush), excruciating social embarrassment (your parents seeing your search history, your nudes being leaked), or horrible real-world choices (your partner reads your group chat, everyone you've slept with is in one room). The test: if someone laughs immediately, it's Silly. If someone grimaces and says "oh god, neither", it's Cursed.
+IMPORTANT: Cursed questions are NOT silly body-modification hypotheticals. Those are Silly. Cursed means both options make you physically cringe, squirm, or feel deeply uncomfortable. Think: gross sensory experiences with real things (licking a pub floor, sharing a toothbrush), excruciating social embarrassment (your parents seeing your search history, your nudes being leaked), or horrible real-world choices. The test: if someone laughs immediately, it's Silly. If someone grimaces and says "oh god, neither", it's Cursed.
 
 Good examples:
 - "walk in on your parents" / "have your parents walk in on you"
@@ -491,7 +258,7 @@ Good examples:
 - "bite into every apple and find half a worm" / "feel something brush against your foot in every body of water you enter"
 - "have a counter above your head showing how many people in the room have seen you naked" / "have your Spotify listening history displayed above your head at all times"
 - "eat a bowl of toenail clippings" / "drink a glass of someone else's sweat"
-- "your partner reads your entire group chat history" / "your boss reads your entire search history"
+- "your group chat history is read aloud at your next family dinner" / "your boss reads your entire search history"
 
 Bad examples (these are Silly, NOT Cursed): "sweat maple syrup", "have fingers for legs", "sneeze confetti", "your tears are hot sauce"`,
 
@@ -503,7 +270,7 @@ Refer to these descriptions:
 - CURSED: Both options are horrible, gross, or deeply uncomfortable`,
       };
 
-      return `Generate ${count} "Would you rather" dilemmas for the "${wyrCategory}" category.
+      return `Generate ${count} "Would you rather" dilemmas for the "${wyrCategory}" category. This is a GROUP party game (3-16 friends in a circle).
 
 ${wyrCategoryInstructions[wyrCategory]}
 
@@ -515,9 +282,8 @@ RULES (follow these strictly):
 - Never use emdashes. Use parentheses if clarification is needed.
 - Both options must be genuinely hard to choose between. If one option is obviously better, the question fails.
 - Keep options concise. Each option should ideally be under 15 words.
-- NEVER reference the players' relationship with each other, dating, romance, or "your partner".
+- NEVER reference the players' relationship with each other, dating, romance, or "your partner". Audience is friends.
 - British English spelling throughout.
-- The questions should trigger genuine debate and conversation.
 - Each dilemma must be distinct from the others in the batch.
 
 Return a JSON array of ${count} objects. Each object has "optionA" (string), "optionB" (string), and "category" ("silly", "deep", or "cursed").
@@ -525,7 +291,192 @@ Do NOT include the "Would you rather" prefix in the options (the app adds it).
 Example: [{"optionA": "give up cheese forever", "optionB": "give up every hot drink forever", "category": "silly"}]${excludeClause}`;
     }
 
+    case "most-likely-to": {
+      const mode = options.mode || "silly";
+      const mltVariant = pickRandom(MLT_VARIANTS[mode] || MLT_VARIANTS.silly);
+      const mltSeed = getRandomSeed();
+
+      const modeInstructions: Record<string, string> = {
+        silly: `SILLY mode. Light, funny, embarrassing-but-harmless traits. Things that make the group laugh and immediately point at someone. No sexual content, no genuinely hurtful traits.
+
+Good examples (in the style we want — these are completions for "Most likely to ___"):
+- "lose their phone tonight"
+- "fall asleep on the sofa first"
+- "start karaoke at 3am"
+- "text the wrong person tonight"
+- "order something they regret on Uber Eats at 2am"
+- "cry at a happy ending"
+- "accidentally adopt a pet"
+- "become a meme"
+- "survive a zombie apocalypse"
+- "correct someone's grammar at the worst time"
+- "argue with a stranger on the internet"
+- "wear something weird and pretend it's intentional"
+- "fall down the stairs in heels"
+- "forget their own birthday"
+- "accidentally start an argument at brunch"
+- "show up first to the pre-drinks"
+- "lose their shoes tonight"
+- "become a niche TikTok celebrity"
+- "accidentally end up in a different city"
+- "start a 'what would you do with £10 million' debate"`,
+
+        personal: `PERSONAL mode. Reveals personality, dating life, social habits, dishonesty, friend-group dynamics. Mildly invasive but not sexual. The vibe is "we all know who this is".
+
+Good examples:
+- "text their ex tonight"
+- "cry over a TV show this week"
+- "ghost someone they're seeing"
+- "have a secret crush on someone in this room"
+- "send a risky Snapchat"
+- "hook up with a coworker"
+- "lurk on someone's Instagram for hours"
+- "lie about their age"
+- "fake an injury to skip work"
+- "fall in love with someone they just met"
+- "flirt with a friend's sibling"
+- "lie on their CV"
+- "have been blocked by an ex"
+- "pretend to know someone they don't"
+- "snoop through their partner's phone"
+- "send a 'you up?' text tonight"
+- "screenshot a chat to share with friends"
+- "cancel plans last minute"
+- "start a fight in the group chat"
+- "lie about going to the gym"`,
+
+        spicy: `SPICY mode. Sexual, bold, revealing. The kind of thing that gets pointed fingers and gasps. These are about sexual history, hookups, and bedroom secrets.
+
+Good examples:
+- "have had a threesome"
+- "have had an orgy"
+- "have hooked up at a wedding"
+- "have hooked up in a public park"
+- "have a secret OnlyFans"
+- "have sent nudes to the wrong person"
+- "have hooked up with a friend's ex"
+- "have skinny-dipped with strangers"
+- "have a fetish they've never told anyone about"
+- "have lied about their number of past partners"
+- "have been caught having sex in public"
+- "have hooked up with someone whose name they don't remember"
+- "have hooked up with someone in this room"
+- "have flashed someone deliberately"
+- "have a dating app open on their phone right now"
+- "have hooked up with a coworker's partner"
+- "have used a sex toy somewhere they shouldn't have"
+- "have hooked up with two people in the same friend group"
+- "have sent a thirst trap this week"
+- "have a hookup story they'll take to the grave"`,
+      };
+
+      return `Generate ${count} trait completions for the prompt "Most likely to ___" in the "${mode}" mode.
+
+${modeInstructions[mode]}
+
+THEMATIC DIRECTION FOR THIS BATCH: ${mltVariant}
+CREATIVE SEED (apply to at most 1 item, not the whole batch): ${mltSeed}
+
+RULES (follow these strictly):
+- The ${count} items must cover a wide range of different subjects. NEVER have two items about the same topic, theme, or subject area. Diversity is critical.
+- Each item is a verb phrase that completes "Most likely to ___". Start with a verb (lose, fall, text, hook up, send, etc.) — never a noun.
+- Use third-person singular references ("their", "they") when needed — the players will pick which person fits.
+- Never reference "your partner", couples framing, or assume any romantic relationship between players.
+- Never use emdashes. Use parentheses if clarification is needed.
+- British English spelling throughout.
+- Keep each item concise (one short sentence, ideally under 12 words).
+- Each trait should make the group immediately think of someone specific.
+
+Return a JSON array of ${count} strings.
+Example: ["lose their phone tonight", "fall asleep on the sofa first", "start karaoke at 3am"]${excludeClause}`;
+    }
+
+    case "call-your-bluff": {
+      const mode = options.mode || "silly";
+      const cybVariant = pickRandom(CYB_VARIANTS[mode] || CYB_VARIANTS.silly);
+      const cybSeed = getRandomSeed();
+
+      const modeInstructions: Record<string, string> = {
+        silly: `SILLY mode. Light, observable traits — funny, social, skill-based, quirky. The kind of thing where standing up is a mild claim, not a confession.
+
+Good examples (provided as singular forms — you must produce both singular and plural):
+- "funniest"
+- "loudest"
+- "clumsiest"
+- "messiest eater"
+- "best dancer"
+- "best at karaoke"
+- "fastest texter"
+- "best storyteller"
+- "quickest thinker"
+- "most photogenic"
+- "worst at directions"
+- "fastest at finishing a drink"
+- "best at trivia"
+- "most caffeinated person here"
+- "best at impressions"
+- "most likely to laugh first at anything"
+- "biggest sweet tooth"
+- "best at remembering everyone's birthdays"
+- "heaviest sleeper"
+- "best at parallel parking"`,
+
+        personal: `PERSONAL mode. The trait must be DESIRABLE — something people would actually want to claim. The mechanic only works if standing up is attractive. Think: attractiveness, charisma, sexual confidence, success, magnetism. NEVER include negative or embarrassing traits in this mode.
+
+Good examples (singular forms — all desirable):
+- "most attractive"
+- "best in bed"
+- "most charming"
+- "best looking"
+- "best kisser"
+- "most stylish"
+- "most confident"
+- "richest"
+- "coolest"
+- "most successful"
+- "most charismatic"
+- "most ambitious"
+- "fittest"
+- "most well-traveled"
+- "most talented"
+- "most desirable"
+- "most magnetic"
+- "biggest flirt"
+- "best dressed"
+- "most adventurous"
+
+Bad examples (do NOT generate these — they are not desirable enough):
+- "loudest"
+- "clumsiest"
+- "messiest"
+- "worst at X"
+- anything self-deprecating`,
+      };
+
+      return `Generate ${count} traits for the "Call Your Bluff" game in "${mode}" mode. Each trait will be plugged into two templates:
+- "I am one of the X {plural} in the circle" (used when X >= 2)
+- "I am THE {singular} in the circle" (used when X = 1)
+
+You must return BOTH a singular and a plural form for each trait. For traits that don't change form (like "funniest"), the two strings can be identical. For traits like "biggest flirt" / "biggest flirts", they differ.
+
+${modeInstructions[mode]}
+
+THEMATIC DIRECTION FOR THIS BATCH: ${cybVariant}
+CREATIVE SEED (apply to at most 1 item, not the whole batch): ${cybSeed}
+
+RULES (follow these strictly):
+- The ${count} items must cover a wide range of different traits. NEVER have two items about the same trait or theme. Diversity is critical.
+- Each trait must read naturally in BOTH templates. Test mentally: "I am one of the 3 X in the circle" and "I am THE X in the circle".
+- Each trait is a noun phrase or superlative ("funniest", "biggest flirt", "best dancer") — NOT a verb phrase, NOT a sentence.
+- Never use emdashes.
+- British English spelling throughout.
+- Never reference "your partner", couples framing, or romance assumptions. Audience is friends.
+
+Return a JSON array of ${count} objects. Each object has "singular" (string) and "plural" (string).
+Example: [{"singular": "funniest", "plural": "funniest"}, {"singular": "biggest flirt", "plural": "biggest flirts"}, {"singular": "best dancer", "plural": "best dancers"}]${excludeClause}`;
+    }
+
     default:
-      return `Generate ${count} fun conversation starters for a couple on a date night. Return a JSON array of strings.${excludeClause}`;
+      return `Generate ${count} fun party game prompts for a group of friends. Return a JSON array of strings.${excludeClause}`;
   }
 }

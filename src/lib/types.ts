@@ -1,43 +1,16 @@
-export type GameId = 'wheel' | 'mr-and-mrs' | 'never-have-i-ever' | 'would-you-rather';
+export type GameId =
+  | 'never-have-i-ever'
+  | 'would-you-rather'
+  | 'most-likely-to'
+  | 'call-your-bluff';
 
 export type SpiceLevel = 'mild' | 'spicy' | 'villain';
-
-export type WheelCategory =
-  | 'Funny Stories'
-  | 'Big Questions'
-  | 'Guilty Pleasures'
-  | 'Hot Takes'
-  | 'Fears & Peeves'
-  | 'Confessions'
-  | 'Situationships'
-  | 'Wild Card';
-
-export const WHEEL_CATEGORIES: WheelCategory[] = [
-  'Funny Stories',
-  'Big Questions',
-  'Guilty Pleasures',
-  'Hot Takes',
-  'Fears & Peeves',
-  'Situationships',
-  'Confessions',
-  'Wild Card',
-];
-
-export const WHEEL_EMOJIS: Record<WheelCategory, string> = {
-  'Funny Stories': '😂',
-  'Big Questions': '🧠',
-  'Guilty Pleasures': '🫣',
-  'Hot Takes': '🔥',
-  'Fears & Peeves': '😱',
-  'Confessions': '🤫',
-  'Situationships': '💋',
-  'Wild Card': '🃏',
-};
 
 export interface GenerateRequest {
   game: GameId;
   category?: string;
   spiceLevel?: SpiceLevel;
+  mode?: string;
   count?: number;
   exclude?: string[];
 }
@@ -57,12 +30,34 @@ export interface WouldYouRatherDilemma {
   category: 'silly' | 'deep' | 'cursed';
 }
 
-export interface MrAndMrsQuestion {
-  question: string;
-  spicy: boolean;
+export type MostLikelyToMode = 'silly' | 'personal' | 'spicy';
+
+export interface MostLikelyToOption {
+  value: MostLikelyToMode;
+  label: string;
 }
 
-export interface PlayerNames {
-  player1: string;
-  player2: string;
+export const MOST_LIKELY_TO_MODES: MostLikelyToOption[] = [
+  { value: 'silly', label: '😇 Silly' },
+  { value: 'personal', label: '😈 Personal' },
+  { value: 'spicy', label: '🌶️ Spicy' },
+];
+
+export type CallYourBluffMode = 'silly' | 'personal';
+
+export interface CallYourBluffOption {
+  value: CallYourBluffMode;
+  label: string;
 }
+
+export const CALL_YOUR_BLUFF_MODES: CallYourBluffOption[] = [
+  { value: 'silly', label: '😇 Silly' },
+  { value: 'personal', label: '😈 Personal' },
+];
+
+export interface CallYourBluffTrait {
+  singular: string;
+  plural: string;
+}
+
+export type PlayerNames = string[];

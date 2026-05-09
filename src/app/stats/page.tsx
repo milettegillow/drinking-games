@@ -165,6 +165,7 @@ export default function StatsPage() {
   const minutesAgo = stats
     ? Math.max(
         1,
+        // eslint-disable-next-line react-hooks/purity
         Math.round((Date.now() - new Date(stats.updatedAt).getTime()) / 60000)
       )
     : null;
@@ -466,7 +467,7 @@ export default function StatsPage() {
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-2.5 rounded-full bg-cream/5 overflow-hidden">
                         <motion.div
-                          className="h-full rounded-full bg-casino-red/60"
+                          className="h-full rounded-full bg-gold/60"
                           initial={{ width: 0 }}
                           animate={{
                             width: `${stats.settings.mrsmrsSpicy.spicyPercent}%`,

@@ -1,11 +1,11 @@
 {
-  "name": "Date Night Games",
-  "short_name": "Date Night",
-  "description": "Shuffle the deck. Spark the conversation.",
+  "name": "drinking games",
+  "short_name": "drinking games",
+  "description": "Four games for the circle.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0B1A0F",
-  "theme_color": "#1B5E32",
+  "background_color": "#1A0D2E",
+  "theme_color": "#4C2A85",
   "orientation": "portrait",
   "icons": [
     {

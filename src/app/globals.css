@@ -2,16 +2,15 @@
 
 :root {
   font-size: 17px;
-  --background: #0b1a0f;
+  --background: #1a0d2e;
   --foreground: #fff8f0;
-  --felt: #1b5e32;
-  --felt-dark: #112a1b;
-  --felt-light: #2e7d46;
+  --felt: #4c2a85;
+  --felt-dark: #2d1660;
+  --felt-light: #6e44b5;
   --cream: #fff8f0;
   --gold: #d4a845;
   --gold-light: #e8c97a;
   --silver: #a8b2b8;
-  --casino-red: #c41e3a;
 }
 
 @theme inline {
@@ -24,7 +23,6 @@
   --color-gold: var(--gold);
   --color-gold-light: var(--gold-light);
   --color-silver: var(--silver);
-  --color-casino-red: var(--casino-red);
   --font-display: var(--font-dm-serif);
   --font-body: var(--font-josefin);
 }
@@ -100,11 +98,11 @@ a {
   backface-visibility: hidden;
 }
 
-/* Subtle casino table felt pattern */
+/* Subtle table felt pattern (purple) */
 .table-pattern {
   background-image: radial-gradient(
     ellipse at 50% 50%,
-    rgba(46, 125, 70, 0.05) 0%,
+    rgba(110, 68, 181, 0.08) 0%,
     transparent 70%
   );
   background-size: 80px 80px;

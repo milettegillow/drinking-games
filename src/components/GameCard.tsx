@@ -4,26 +4,19 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import posthog from "posthog-js";
 
-type Suit = "hearts" | "spades" | "diamonds" | "clubs";
+export type CardRank = "J" | "Q" | "K" | "A";
 
-const suitSymbols: Record<Suit, string> = {
-  hearts: "♥",
-  spades: "♠",
-  diamonds: "♦",
-  clubs: "♣",
-};
-
-const suitColors: Record<Suit, string> = {
-  hearts: "text-casino-red",
-  spades: "text-felt-dark",
-  diamonds: "text-casino-red",
-  clubs: "text-felt-dark",
+const rankOrnaments: Record<CardRank, string> = {
+  J: "♠",
+  Q: "♛",
+  K: "♚",
+  A: "✦",
 };
 
 interface GameCardProps {
   title: string;
   subtitle: string;
-  suit: Suit;
+  rank: CardRank;
   href: string;
   delay?: number;
 }
@@ -31,12 +24,11 @@ interface GameCardProps {
 export default function GameCard({
   title,
   subtitle,
-  suit,
+  rank,
   href,
   delay = 0,
 }: GameCardProps) {
-  const symbol = suitSymbols[suit];
-  const color = suitColors[suit];
+  const ornament = rankOrnaments[rank];
 
   return (
     <motion.div
@@ -44,34 +36,46 @@ export default function GameCard({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
     >
-      <Link href={href} className="block" onClick={() => { console.log('[Analytics]', 'game_selected', { game: href.replace("/", "") }); posthog.capture("game_selected", { game: href.replace("/", "") }); }}>
+      <Link
+        href={href}
+        className="block"
+        onClick={() => {
+          const game = href.replace("/", "");
+          console.log("[Analytics]", "game_selected", { game });
+          posthog.capture("game_selected", { game });
+        }}
+      >
         <motion.div
           whileHover={{ scale: 1.03, rotateY: 3, rotateX: -2 }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className="relative bg-cream rounded-xl border-2 border-gold/30 shadow-lg overflow-hidden cursor-pointer"
+          className="relative bg-felt-dark/60 backdrop-blur-sm rounded-xl border-2 border-gold/30 shadow-lg overflow-hidden cursor-pointer"
           style={{ perspective: 800 }}
         >
-          <div className="p-4 min-h-[160px] flex flex-col items-center justify-center relative">
-            {/* Top-left suit */}
-            <span
-              className={`absolute top-2 left-3 text-lg font-bold ${color}`}
-            >
-              {symbol}
+          <div className="p-4 min-h-[180px] flex flex-col items-center justify-center relative">
+            {/* Top-left ornament */}
+            <span className="absolute top-2 left-3 text-sm text-gold/80 leading-none">
+              {ornament}
             </span>
 
-            {/* Bottom-right suit (rotated) */}
-            <span
-              className={`absolute bottom-2 right-3 text-lg font-bold ${color} rotate-180`}
-            >
-              {symbol}
+            {/* Bottom-right ornament (rotated) */}
+            <span className="absolute bottom-2 right-3 text-sm text-gold/80 leading-none rotate-180">
+              {ornament}
             </span>
 
-            {/* Card content */}
-            <h3 className="font-display text-xl text-felt-dark font-bold text-center leading-tight mb-1">
+            {/* Big rank letterform */}
+            <span
+              className="font-display font-bold text-cream leading-none mb-2"
+              style={{ fontSize: "clamp(3.5rem, 18vw, 5rem)" }}
+            >
+              {rank}
+            </span>
+
+            {/* Game title */}
+            <h3 className="font-body text-sm text-cream/90 font-semibold text-center leading-tight">
               {title}
             </h3>
-            <p className="font-body text-xs text-felt-light text-center leading-snug px-2">
+            <p className="font-body text-[10px] text-cream/50 text-center leading-snug px-1 mt-1">
               {subtitle}
             </p>
           </div>

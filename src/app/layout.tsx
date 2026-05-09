@@ -18,8 +18,8 @@ const josefinSans = Josefin_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Date Night Games",
-  description: "Conversation run dry? Shuffle the deck.",
+  title: "drinking games",
+  description: "Four games for the circle.",
   manifest: "/manifest.json",
   icons: {
     icon: "/qh-favicon.png",
@@ -28,11 +28,11 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Date Night",
+    title: "drinking games",
   },
   openGraph: {
-    title: "Date Night Games",
-    description: "Conversation run dry? Shuffle the deck.",
+    title: "drinking games",
+    description: "Four games for the circle.",
     type: "website",
   },
 };

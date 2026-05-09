@@ -4,9 +4,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useGame } from "@/context/GameContext";
-import NameEntry from "@/components/NameEntry";
+import PlayerSetup from "@/components/PlayerSetup";
 import PassPhone from "@/components/PassPhone";
-import RevealResult from "@/components/RevealResult";
 import ScoreTracker from "@/components/ScoreTracker";
 import EndScreen from "@/components/EndScreen";
 import LoadingState from "@/components/LoadingState";
@@ -15,77 +14,75 @@ import { vibrate } from "@/lib/haptics";
 import posthog from "posthog-js";
 
 type Phase =
-  | "names"
+  | "setup"
   | "loading"
-  | "pass-to-p1"
-  | "p1-answer"
-  | "pass-to-p2"
-  | "p2-answer"
+  | "pass"
+  | "vote"
   | "reveal"
   | "end";
 
 const TOTAL_ROUNDS = 10;
 
-const TIERS = [
-  { minScore: 9, message: "Scarily compatible!", emoji: "💕" },
-  { minScore: 7, message: "Cut from the same cloth!", emoji: "😍" },
-  { minScore: 5, message: "Some common ground!", emoji: "💛" },
-  { minScore: 0, message: "Opposites attract!", emoji: "🌱" },
-];
+type Vote = "A" | "B";
 
 export default function WouldYouRatherPage() {
   const { playerNames, globalExcludeList, addToExcludeList } = useGame();
-  const [phase, setPhase] = useState<Phase>("names");
+  const [phase, setPhase] = useState<Phase>("setup");
   const [category, setCategory] = useState<WyrCategory>("shuffle");
   const [dilemmas, setDilemmas] = useState<WouldYouRatherDilemma[]>([]);
   const [usedDilemmas, setUsedDilemmas] = useState<string[]>([]);
   const [round, setRound] = useState(1);
-  const [score, setScore] = useState(0);
-  const [p1Answer, setP1Answer] = useState<string | null>(null);
-  const [p2Answer, setP2Answer] = useState<string | null>(null);
+  const [voterIndex, setVoterIndex] = useState(0);
+  const [votes, setVotes] = useState<Vote[]>([]);
+  // minorityCounts: how many rounds each player was in the minority
+  const [minorityCounts, setMinorityCounts] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const recentCategories = useRef<string[]>([]);
-  const startTime = useRef(Date.now());
+  const startTime = useRef<number | null>(null);
   const hasEnded = useRef(false);
   const clickCount = useRef(0);
   const roundRef = useRef(1);
 
   useEffect(() => {
+    startTime.current = Date.now();
     return () => {
-      if (hasEnded.current) return;
-      const duration = Math.round((Date.now() - startTime.current) / 1000);
-      const props = { game: 'would-you-rather', duration_seconds: duration, rounds_played: roundRef.current, total_clicks: clickCount.current, completed: false };
-      console.log('[Analytics]', 'game_session_end', props);
-      posthog.capture('game_session_end', props);
+      if (hasEnded.current || startTime.current === null) return;
+      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
+      const props = {
+        game: "would-you-rather",
+        duration_seconds: duration,
+        rounds_played: roundRef.current,
+        total_clicks: clickCount.current,
+        completed: false,
+      };
+      console.log("[Analytics]", "game_session_end", props);
+      posthog.capture("game_session_end", props);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const players = playerNames ?? [];
+  const playerCount = players.length;
   const currentDilemma = dilemmas[0];
 
   const fetchDilemmas = useCallback(
     async (cat: WyrCategory, exclude: string[]) => {
-      const requestBody = {
-        game: "would-you-rather",
-        category: cat,
-        count: 10,
-        exclude,
-      };
-      console.log("[WYR] Fetching dilemmas:", requestBody);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          game: "would-you-rather",
+          category: cat,
+          count: 10,
+          exclude,
+        }),
       });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      console.log("[WYR] Received dilemmas:", data.items?.map((d: WouldYouRatherDilemma) => d.category));
       return data.items as WouldYouRatherDilemma[];
     },
     []
   );
 
-  // For shuffle mode: reorder so no more than 2 from same category in a row
   const enforceShuffleOrder = (items: WouldYouRatherDilemma[]): WouldYouRatherDilemma[] => {
     if (items.length <= 1) return items;
     const result: WouldYouRatherDilemma[] = [];
@@ -113,42 +110,38 @@ export default function WouldYouRatherPage() {
   };
 
   const loadDilemmas = useCallback(
-    async (cat?: WyrCategory) => {
-      const targetCat = cat || category;
+    async (cat: WyrCategory) => {
       setPhase("loading");
       setError(null);
       try {
-        let items = await fetchDilemmas(targetCat, [...globalExcludeList, ...usedDilemmas]);
-        if (targetCat === "shuffle") {
+        let items = await fetchDilemmas(cat, [...globalExcludeList, ...usedDilemmas]);
+        if (cat === "shuffle") {
           items = enforceShuffleOrder(items);
         }
         setDilemmas(items);
-        setPhase("pass-to-p1");
+        setPhase("pass");
       } catch (err) {
-        console.log('[Analytics]', 'api_error', { game: "would-you-rather", error: String(err) });
+        console.log("[Analytics]", "api_error", { game: "would-you-rather", error: String(err) });
         posthog.capture("api_error", { game: "would-you-rather", error: String(err) });
         setError("Shuffling the deck... try again!");
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fetchDilemmas, usedDilemmas, category, globalExcludeList]
+    [fetchDilemmas, usedDilemmas, globalExcludeList]
   );
 
-  const handleStart = () => {
-    console.log('[Analytics]', 'wyr_game_start', { category });
-    posthog.capture("wyr_game_start", { category });
-    loadDilemmas();
+  const handleSetupStart = (count: number) => {
+    setMinorityCounts(Array.from({ length: count }, () => 0));
+    console.log("[Analytics]", "wyr_game_start", { category, playerCount: count });
+    posthog.capture("wyr_game_start", { category, playerCount: count });
+    loadDilemmas(category);
   };
 
   const handleCategoryChange = (newCat: WyrCategory) => {
+    if (newCat === category) return;
     vibrate(20);
-    console.log('[Analytics]', 'wyr_category_switch', { from: category, to: newCat });
+    console.log("[Analytics]", "wyr_category_switch", { from: category, to: newCat });
     posthog.capture("wyr_category_switch", { from: category, to: newCat });
     setCategory(newCat);
-    console.log("[WYR] Category changed to:", newCat);
-    // Don't touch the current dilemmas list — the category change
-    // takes effect on the NEXT question (handled in handleNext).
-    // Background-fetch for the new category so items are ready.
     if (newCat !== "shuffle") {
       const hasEnough = dilemmas.filter((d) => d.category === newCat).length >= 3;
       if (!hasEnough) {
@@ -159,47 +152,50 @@ export default function WouldYouRatherPage() {
     }
   };
 
-  const handleP1Answer = (answer: string) => {
+  const handleVote = (choice: Vote) => {
     clickCount.current += 1;
     vibrate(30);
-    setP1Answer(answer);
-    setPhase("pass-to-p2");
-  };
+    const newVotes = [...votes, choice];
+    setVotes(newVotes);
 
-  const handleP2Answer = (answer: string) => {
-    clickCount.current += 1;
-    vibrate(30);
-    setP2Answer(answer);
-    console.log('[Debug WYR]', `Category: ${category}`, currentDilemma ? `| Question category: ${currentDilemma.category}` : '');
-    const matched = answer === p1Answer;
-    if (matched) setScore((s) => s + 1);
-    console.log('[Analytics]', 'wyr_round_complete', { round, totalRounds: TOTAL_ROUNDS, matched, category: currentDilemma?.category ?? category });
-    posthog.capture("wyr_round_complete", { round, totalRounds: TOTAL_ROUNDS, matched, category: currentDilemma?.category ?? category });
-    setPhase("reveal");
-  };
-
-  const getNextDilemma = (remaining: WouldYouRatherDilemma[]): WouldYouRatherDilemma[] => {
-    if (category !== "shuffle" || remaining.length <= 1) return remaining;
-
-    const recentTwo = recentCategories.current.slice(-2);
-    const allSame = recentTwo.length === 2 && recentTwo[0] === recentTwo[1];
-
-    if (allSame && remaining[0]?.category === recentTwo[0]) {
-      const swapIdx = remaining.findIndex((d) => d.category !== recentTwo[0]);
-      if (swapIdx > 0) {
-        const reordered = [...remaining];
-        const [swapped] = reordered.splice(swapIdx, 1);
-        reordered.unshift(swapped);
-        return reordered;
-      }
+    if (voterIndex + 1 >= playerCount) {
+      // All voted — go to reveal
+      setPhase("reveal");
+    } else {
+      setVoterIndex((i) => i + 1);
+      setPhase("pass");
     }
-    return remaining;
+  };
+
+  const tallyForReveal = () => {
+    const aVoters = votes
+      .map((v, i) => (v === "A" ? i : -1))
+      .filter((i) => i >= 0);
+    const bVoters = votes
+      .map((v, i) => (v === "B" ? i : -1))
+      .filter((i) => i >= 0);
+    return { aVoters, bVoters };
   };
 
   const handleNext = () => {
     clickCount.current += 1;
-    setP1Answer(null);
-    setP2Answer(null);
+
+    const { aVoters, bVoters } = tallyForReveal();
+    const aCount = aVoters.length;
+    const bCount = bVoters.length;
+    const isUnanimous = aCount === 0 || bCount === 0;
+    const isTie = aCount === bCount;
+
+    if (!isUnanimous && !isTie) {
+      const minorityIndices = aCount < bCount ? aVoters : bVoters;
+      setMinorityCounts((prev) => {
+        const next = [...prev];
+        minorityIndices.forEach((idx) => {
+          next[idx] = (next[idx] ?? 0) + 1;
+        });
+        return next;
+      });
+    }
 
     const dilemmaStr = currentDilemma
       ? `${currentDilemma.optionA} or ${currentDilemma.optionB}`
@@ -213,23 +209,42 @@ export default function WouldYouRatherPage() {
     }
 
     let remaining = dilemmas.slice(1);
-    // For non-shuffle, filter to current category
     if (category !== "shuffle") {
       remaining = remaining.filter((d) => d.category === category);
     }
-    remaining = getNextDilemma(remaining);
 
     const newUsed = [...usedDilemmas, dilemmaStr];
     setUsedDilemmas(newUsed);
     addToExcludeList([dilemmaStr]);
 
+    console.log("[Analytics]", "wyr_round_complete", {
+      round,
+      totalRounds: TOTAL_ROUNDS,
+      aCount,
+      bCount,
+      category: currentDilemma?.category ?? category,
+    });
+    posthog.capture("wyr_round_complete", {
+      round,
+      totalRounds: TOTAL_ROUNDS,
+      aCount,
+      bCount,
+      category: currentDilemma?.category ?? category,
+    });
+
     if (round >= TOTAL_ROUNDS) {
-      console.log('[Analytics]', 'wyr_game_complete', { score, category });
-      posthog.capture("wyr_game_complete", { score, category });
-      const duration = Math.round((Date.now() - startTime.current) / 1000);
-      const sessionProps = { game: 'would-you-rather', duration_seconds: duration, rounds_played: round, total_clicks: clickCount.current, completed: true };
-      console.log('[Analytics]', 'game_session_end', sessionProps);
-      posthog.capture('game_session_end', sessionProps);
+      console.log("[Analytics]", "wyr_game_complete", { category, playerCount });
+      posthog.capture("wyr_game_complete", { category, playerCount });
+      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
+      const sessionProps = {
+        game: "would-you-rather",
+        duration_seconds: duration,
+        rounds_played: round,
+        total_clicks: clickCount.current,
+        completed: true,
+      };
+      console.log("[Analytics]", "game_session_end", sessionProps);
+      posthog.capture("game_session_end", sessionProps);
       hasEnded.current = true;
       setDilemmas(remaining);
       setPhase("end");
@@ -238,22 +253,21 @@ export default function WouldYouRatherPage() {
 
     setRound((r) => r + 1);
     roundRef.current = round + 1;
+    setVoterIndex(0);
+    setVotes([]);
 
-    // If no items left for the selected category, fetch immediately
     if (remaining.length === 0) {
       setDilemmas([]);
       setPhase("loading");
       setError(null);
       fetchDilemmas(category, [...globalExcludeList, ...newUsed])
         .then((items) => {
-          if (category === "shuffle") {
-            items = enforceShuffleOrder(items);
-          }
+          if (category === "shuffle") items = enforceShuffleOrder(items);
           setDilemmas(items);
-          setPhase("pass-to-p1");
+          setPhase("pass");
         })
         .catch((err) => {
-          console.log('[Analytics]', 'api_error', { game: "would-you-rather", error: String(err) });
+          console.log("[Analytics]", "api_error", { game: "would-you-rather", error: String(err) });
           posthog.capture("api_error", { game: "would-you-rather", error: String(err) });
           setError("Shuffling the deck... try again!");
         });
@@ -261,36 +275,48 @@ export default function WouldYouRatherPage() {
     }
 
     setDilemmas(remaining);
-
-    // Background refetch if running low
     if (remaining.length < 3) {
       fetchDilemmas(category, [...globalExcludeList, ...newUsed]).then((items) => {
         setDilemmas((prev) => [...prev, ...items]);
       });
     }
 
-    setPhase("pass-to-p1");
+    setPhase("pass");
   };
 
   const handlePlayAgain = () => {
     setRound(1);
-    setScore(0);
-    setP1Answer(null);
-    setP2Answer(null);
+    setVoterIndex(0);
+    setVotes([]);
+    setMinorityCounts(Array.from({ length: playerCount }, () => 0));
     setUsedDilemmas([]);
     recentCategories.current = [];
     startTime.current = Date.now();
     hasEnded.current = false;
     clickCount.current = 0;
     roundRef.current = 1;
-    loadDilemmas();
+    loadDilemmas(category);
   };
 
-  if (phase === "names") {
+  // Compute end-screen "Most Controversial Player(s)"
+  const computeMostControversial = (): string => {
+    const max = Math.max(...minorityCounts, 0);
+    if (max === 0) return "";
+    const winners = minorityCounts
+      .map((c, i) => ({ count: c, name: players[i] }))
+      .filter((p) => p.count === max)
+      .map((p) => p.name);
+    return winners.join(", ");
+  };
+
+  const showCategoryTabs =
+    phase === "pass" || phase === "vote" || phase === "reveal";
+
+  if (phase === "setup") {
     return (
       <div
         className="min-h-[100dvh] flex flex-col items-center px-5 pb-6 safe-bottom"
-        style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top, 0px))' }}
+        style={{ paddingTop: "max(2.5rem, env(safe-area-inset-top, 0px))" }}
       >
         <div className="w-full max-w-sm mb-4">
           <Link
@@ -301,26 +327,18 @@ export default function WouldYouRatherPage() {
           </Link>
         </div>
 
-        <motion.h1
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="font-display font-bold text-gold leading-tight mb-4"
-          style={{ fontSize: 'clamp(1.75rem, 8vw, 2.5rem)' }}
-        >
-          Would You Rather
-        </motion.h1>
-
-        <div className="flex-1 flex flex-col items-center justify-start pt-4 w-full max-w-sm">
-          <p className="font-body text-cream/50 text-xs text-center mb-4 max-w-xs">
-            Do you think alike? Pick the same answer to score!
+        <div className="w-full max-w-sm mb-4">
+          <p className="font-body text-cream/40 text-xs text-center mb-3">
+            Choose a category
           </p>
-
-          {/* Category tabs on intro screen */}
-          <div className="flex gap-1.5 mb-6 w-full">
+          <div className="flex gap-1.5">
             {WYR_CATEGORIES.map((cat) => (
               <button
                 key={cat.value}
-                onClick={() => { vibrate(20); setCategory(cat.value); }}
+                onClick={() => {
+                  vibrate(20);
+                  setCategory(cat.value);
+                }}
                 className={`relative flex-1 py-2 rounded-lg font-body text-xs font-medium transition-colors min-h-[36px] ${
                   category === cat.value
                     ? "bg-gold/20 border border-gold/30 text-gold"
@@ -331,19 +349,18 @@ export default function WouldYouRatherPage() {
               </button>
             ))}
           </div>
-
-          <NameEntry onStart={handleStart} />
         </div>
+
+        <PlayerSetup
+          gameTitle="Would You Rather"
+          requireNames={true}
+          minPlayers={3}
+          maxPlayers={16}
+          onStart={handleSetupStart}
+        />
       </div>
     );
   }
-
-  const showCategoryTabs =
-    phase === "pass-to-p1" ||
-    phase === "p1-answer" ||
-    phase === "pass-to-p2" ||
-    phase === "p2-answer" ||
-    phase === "reveal";
 
   return (
     <div
@@ -353,7 +370,6 @@ export default function WouldYouRatherPage() {
         paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))",
       }}
     >
-      {/* Header */}
       <div className="w-full max-w-sm mb-2 shrink-0">
         <Link
           href="/"
@@ -367,12 +383,11 @@ export default function WouldYouRatherPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="font-display font-bold text-gold leading-tight mb-2 shrink-0"
-        style={{ fontSize: 'clamp(1.75rem, 8vw, 2.5rem)' }}
+        style={{ fontSize: "clamp(1.75rem, 8vw, 2.5rem)" }}
       >
         Would You Rather
       </motion.h1>
 
-      {/* Category tabs */}
       {showCategoryTabs && (
         <div className="flex gap-1.5 mb-2 w-full max-w-sm shrink-0">
           {WYR_CATEGORIES.map((cat) => (
@@ -395,8 +410,9 @@ export default function WouldYouRatherPage() {
         <ScoreTracker
           round={round}
           totalRounds={TOTAL_ROUNDS}
-          score={score}
-          maxScore={TOTAL_ROUNDS}
+          score={voterIndex}
+          maxScore={playerCount}
+          label="Voted"
         />
       )}
 
@@ -413,7 +429,7 @@ export default function WouldYouRatherPage() {
                 <div className="text-center">
                   <p className="font-body text-cream/60 text-sm mb-3">{error}</p>
                   <button
-                    onClick={() => loadDilemmas()}
+                    onClick={() => loadDilemmas(category)}
                     className="font-body text-gold text-sm underline"
                   >
                     Try Again
@@ -425,17 +441,20 @@ export default function WouldYouRatherPage() {
             </motion.div>
           )}
 
-          {phase === "pass-to-p1" && playerNames && (
+          {phase === "pass" && players[voterIndex] && (
             <PassPhone
-              key="pass-p1"
-              playerName={playerNames.player1}
-              onReady={() => { clickCount.current += 1; setPhase("p1-answer"); }}
+              key={`pass-${round}-${voterIndex}`}
+              playerName={players[voterIndex]}
+              onReady={() => {
+                clickCount.current += 1;
+                setPhase("vote");
+              }}
             />
           )}
 
-          {phase === "p1-answer" && currentDilemma && playerNames && (
+          {phase === "vote" && currentDilemma && players[voterIndex] && (
             <motion.div
-              key={`p1-${round}`}
+              key={`vote-${round}-${voterIndex}`}
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
@@ -443,24 +462,22 @@ export default function WouldYouRatherPage() {
             >
               <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-5 mb-4">
                 <p className="font-body text-cream/50 text-xs mb-1">
-                  {playerNames.player1}, would you rather...
+                  {players[voterIndex]}, would you rather...
                 </p>
               </div>
 
               <div className="flex flex-col gap-3">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => handleP1Answer("A")}
+                  onClick={() => handleVote("A")}
                   className="py-4 px-5 rounded-lg bg-gold/20 border border-gold/30 text-cream font-body text-sm font-medium text-left min-h-[56px] leading-relaxed"
                 >
                   {currentDilemma.optionA}
                 </motion.button>
-                <p className="font-display text-gold/40 text-xs text-center">
-                  or
-                </p>
+                <p className="font-display text-gold/40 text-xs text-center">or</p>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => handleP1Answer("B")}
+                  onClick={() => handleVote("B")}
                   className="py-4 px-5 rounded-lg bg-silver/20 border border-silver/30 text-cream font-body text-sm font-medium text-left min-h-[56px] leading-relaxed"
                 >
                   {currentDilemma.optionB}
@@ -469,84 +486,158 @@ export default function WouldYouRatherPage() {
             </motion.div>
           )}
 
-          {phase === "pass-to-p2" && playerNames && (
-            <PassPhone
-              key="pass"
-              playerName={playerNames.player2}
-              onReady={() => { clickCount.current += 1; setPhase("p2-answer"); }}
-            />
-          )}
-
-          {phase === "p2-answer" && currentDilemma && playerNames && (
-            <motion.div
-              key={`p2-${round}`}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              className="w-full max-w-sm"
-            >
-              <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-5 mb-4">
-                <p className="font-body text-cream/50 text-xs mb-1">
-                  {playerNames.player2}, would you rather...
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => handleP2Answer("A")}
-                  className="py-4 px-5 rounded-lg bg-gold/20 border border-gold/30 text-cream font-body text-sm font-medium text-left min-h-[56px] leading-relaxed"
-                >
-                  {currentDilemma.optionA}
-                </motion.button>
-                <p className="font-display text-gold/40 text-xs text-center">
-                  or
-                </p>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => handleP2Answer("B")}
-                  className="py-4 px-5 rounded-lg bg-silver/20 border border-silver/30 text-cream font-body text-sm font-medium text-left min-h-[56px] leading-relaxed"
-                >
-                  {currentDilemma.optionB}
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
-
-          {phase === "reveal" && currentDilemma && playerNames && p1Answer && p2Answer && (
-            <RevealResult
+          {phase === "reveal" && currentDilemma && (
+            <RevealScreen
               key={`reveal-${round}`}
-              question={`Would you rather ${currentDilemma.optionA} or ${currentDilemma.optionB}?`}
-              player1Name={playerNames.player1}
-              player2Name={playerNames.player2}
-              player1Answer={
-                p1Answer === "A"
-                  ? currentDilemma.optionA
-                  : currentDilemma.optionB
-              }
-              player2Answer={
-                p2Answer === "A"
-                  ? currentDilemma.optionA
-                  : currentDilemma.optionB
-              }
-              matched={p1Answer === p2Answer}
+              dilemma={currentDilemma}
+              players={players}
+              votes={votes}
+              isLastRound={round >= TOTAL_ROUNDS}
               onNext={handleNext}
-              matchMessage="Great minds think alike!"
-              mismatchMessage="Opposites attract!"
             />
           )}
 
           {phase === "end" && (
-            <EndScreen
-              key="end"
-              score={score}
-              maxScore={TOTAL_ROUNDS}
-              tiers={TIERS}
-              onPlayAgain={handlePlayAgain}
-            />
+            (() => {
+              const winners = computeMostControversial();
+              if (!winners) {
+                return (
+                  <EndScreen
+                    key="end"
+                    variant="custom"
+                    emoji="🤝"
+                    resultLabel="Most Controversial Player"
+                    resultValue="No controversy"
+                    message="Perfectly aligned tonight."
+                    showCrowns={false}
+                    onPlayAgain={handlePlayAgain}
+                  />
+                );
+              }
+              return (
+                <EndScreen
+                  key="end"
+                  variant="custom"
+                  emoji="👑"
+                  resultLabel="Most Controversial Player"
+                  resultValue={winners}
+                  message={
+                    winners.includes(",")
+                      ? "A tie for hot takes!"
+                      : "The hottest takes of the night."
+                  }
+                  onPlayAgain={handlePlayAgain}
+                />
+              );
+            })()
           )}
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+interface RevealScreenProps {
+  dilemma: WouldYouRatherDilemma;
+  players: string[];
+  votes: Vote[];
+  isLastRound: boolean;
+  onNext: () => void;
+}
+
+function RevealScreen({ dilemma, players, votes, isLastRound, onNext }: RevealScreenProps) {
+  useEffect(() => {
+    vibrate(50);
+  }, []);
+
+  const aVoters = votes
+    .map((v, i) => (v === "A" ? players[i] : null))
+    .filter((n): n is string => !!n);
+  const bVoters = votes
+    .map((v, i) => (v === "B" ? players[i] : null))
+    .filter((n): n is string => !!n);
+
+  const isUnanimous = aVoters.length === 0 || bVoters.length === 0;
+  const isTie = aVoters.length === bVoters.length;
+  const everyoneDrinks = isUnanimous || isTie;
+
+  const winningSide: "A" | "B" | null = everyoneDrinks
+    ? null
+    : aVoters.length > bVoters.length
+      ? "A"
+      : "B";
+  const winningOption = winningSide === "A" ? dilemma.optionA : dilemma.optionB;
+  const winningVoters = winningSide === "A" ? aVoters : bVoters;
+
+  return (
+    <motion.div
+      initial={{ rotateY: 90, opacity: 0 }}
+      animate={{ rotateY: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      style={{ transformStyle: "preserve-3d" }}
+      className="w-full max-w-sm overflow-visible"
+    >
+      <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-5 mb-4">
+        <p className="font-body text-cream/50 text-xs text-center mb-1">
+          Would you rather...
+        </p>
+        <p className="font-body text-cream/80 text-sm text-center mb-1">
+          <span className={winningSide === "A" ? "text-gold font-bold" : ""}>{dilemma.optionA}</span>
+        </p>
+        <p className="font-body text-cream/40 text-xs text-center mb-1">or</p>
+        <p className="font-body text-cream/80 text-sm text-center">
+          <span className={winningSide === "B" ? "text-gold font-bold" : ""}>{dilemma.optionB}</span>
+        </p>
+      </div>
+
+      {everyoneDrinks ? (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300 }}
+          className="bg-gold/15 border border-gold/30 rounded-xl p-5 mb-4 text-center"
+        >
+          <p className="text-4xl mb-2">🍻</p>
+          <p className="font-display text-gold text-2xl font-bold mb-1">
+            Everyone drinks!
+          </p>
+          <p className="font-body text-cream/60 text-xs">
+            {isUnanimous ? "Unanimous." : "It's a perfect tie."}
+          </p>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="bg-felt-dark/40 border border-gold/15 rounded-xl p-4 mb-4"
+        >
+          <p className="font-body text-cream/40 text-xs uppercase tracking-wider text-center mb-2">
+            Majority chose
+          </p>
+          <p className="font-display text-gold text-base font-bold text-center mb-3">
+            {winningOption}
+          </p>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {winningVoters.map((name) => (
+              <span
+                key={name}
+                className="px-2 py-1 rounded-md bg-gold/15 border border-gold/20 font-body text-cream text-xs"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={onNext}
+        className="w-full py-3 rounded-lg bg-gold/20 text-gold font-body text-sm font-medium min-h-[48px]"
+      >
+        {isLastRound ? "See Results" : "Next Round"}
+      </motion.button>
+    </motion.div>
   );
 }

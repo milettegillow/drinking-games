@@ -5,10 +5,10 @@ import { GameId, GenerateRequest } from "@/lib/types";
 const client = new Anthropic();
 
 const VALID_GAMES: GameId[] = [
-  "wheel",
-  "mr-and-mrs",
   "never-have-i-ever",
   "would-you-rather",
+  "most-likely-to",
+  "call-your-bluff",
 ];
 
 export async function POST(request: Request) {
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
           content: buildUserPrompt(body.game, {
             category: body.category,
             spiceLevel: body.spiceLevel,
+            mode: body.mode,
             count: body.count || 10,
             exclude: body.exclude,
           }),
