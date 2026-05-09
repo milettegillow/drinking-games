@@ -7,10 +7,10 @@ import posthog from "posthog-js";
 export type CardRank = "J" | "Q" | "K" | "A";
 
 const rankOrnaments: Record<CardRank, string> = {
-  J: "♠",
-  Q: "♛",
-  K: "♚",
-  A: "✦",
+  J: "♣",
+  Q: "♥",
+  K: "♦",
+  A: "♠",
 };
 
 interface GameCardProps {
