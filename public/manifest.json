@@ -1,6 +1,6 @@
 {
-  "name": "drinking games",
-  "short_name": "drinking games",
+  "name": "party games",
+  "short_name": "party games",
   "description": "Four games for the circle.",
   "start_url": "/",
   "display": "standalone",

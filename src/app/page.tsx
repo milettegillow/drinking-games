@@ -20,10 +20,10 @@ export default function Home() {
         className="text-center mb-10 w-full max-w-sm"
       >
         <h1
-          className="font-display font-bold gold-shimmer leading-tight mb-1"
-          style={{ fontSize: "clamp(2.25rem, 11vw, 3rem)" }}
+          className="font-display font-bold gold-shimmer leading-tight mb-1 whitespace-nowrap"
+          style={{ fontSize: "clamp(2rem, 10vw, 3rem)" }}
         >
-          drinking games 🎉
+          party games 🎉
         </h1>
         <p
           className="font-body text-cream/60"
@@ -74,7 +74,7 @@ export default function Home() {
       >
         <div className="h-px w-48 bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
         <p className="font-body text-cream/30 text-[10px]">
-          drinking games
+          party games
         </p>
       </motion.div>
     </div>

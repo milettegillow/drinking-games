@@ -18,7 +18,7 @@ const josefinSans = Josefin_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "drinking games",
+  title: "party games",
   description: "Four games for the circle.",
   manifest: "/manifest.json",
   icons: {
@@ -28,10 +28,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "drinking games",
+    title: "party games",
   },
   openGraph: {
-    title: "drinking games",
+    title: "party games",
     description: "Four games for the circle.",
     type: "website",
   },
