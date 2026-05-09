@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  font-size: 17px;
+  --background: #0b1a0f;
+  --foreground: #fff8f0;
+  --felt: #1b5e32;
+  --felt-dark: #112a1b;
+  --felt-light: #2e7d46;
+  --cream: #fff8f0;
+  --gold: #d4a845;
+  --gold-light: #e8c97a;
+  --silver: #a8b2b8;
+  --casino-red: #c41e3a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-felt: var(--felt);
+  --color-felt-dark: var(--felt-dark);
+  --color-felt-light: var(--felt-light);
+  --color-cream: var(--cream);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-silver: var(--silver);
+  --color-casino-red: var(--casino-red);
+  --font-display: var(--font-dm-serif);
+  --font-body: var(--font-josefin);
+}
+
+body {
+  background: linear-gradient(180deg, var(--felt) 0%, var(--felt-dark) 100%);
+  color: var(--foreground);
+  font-family: var(--font-body, sans-serif);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide scrollbar */
+body::-webkit-scrollbar {
+  display: none;
+}
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Prevent iOS text zoom on input focus */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Prevent double-tap zoom on buttons */
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* Gold shimmer animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--gold) 0%,
+    var(--gold-light) 25%,
+    var(--gold) 50%,
+    var(--gold-light) 75%,
+    var(--gold) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Card flip */
+.perspective {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Subtle casino table felt pattern */
+.table-pattern {
+  background-image: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(46, 125, 70, 0.05) 0%,
+    transparent 70%
+  );
+  background-size: 80px 80px;
+}
+
+/* Safe area padding for notched phones */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
