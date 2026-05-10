@@ -5,31 +5,39 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useGame } from "@/context/GameContext";
 import PlayerSetup from "@/components/PlayerSetup";
+import PlayerName from "@/components/PlayerName";
 import ModeToggle from "@/components/ModeToggle";
 import PassPhone from "@/components/PassPhone";
 import ScoreTracker from "@/components/ScoreTracker";
-import EndScreen from "@/components/EndScreen";
+import EndScreen, { type EndSection } from "@/components/EndScreen";
 import LoadingState from "@/components/LoadingState";
 import { MostLikelyToMode, MOST_LIKELY_TO_MODES } from "@/lib/types";
 import { vibrate } from "@/lib/haptics";
 import posthog from "posthog-js";
 
-type Phase = "setup" | "loading" | "pass" | "vote" | "reveal" | "end";
+type Phase =
+  | "setup"
+  | "loading"
+  | "pass"
+  | "name-entry"
+  | "vote"
+  | "reveal"
+  | "end";
 
 const TOTAL_ROUNDS = 10;
 
 export default function MostLikelyToPage() {
-  const { playerNames, globalExcludeList, addToExcludeList } = useGame();
+  const { playerNames, globalExcludeList, addToExcludeList, initPlayerNames } =
+    useGame();
   const [phase, setPhase] = useState<Phase>("setup");
   const [mode, setMode] = useState<MostLikelyToMode>("silly");
   const [traits, setTraits] = useState<string[]>([]);
   const [usedTraits, setUsedTraits] = useState<string[]>([]);
   const [round, setRound] = useState(1);
   const [voterIndex, setVoterIndex] = useState(0);
-  // votes[i] is the index of the player voted for by voter i this round
   const [votes, setVotes] = useState<number[]>([]);
-  // cumulative votes received per player across all rounds
   const [totalVotes, setTotalVotes] = useState<number[]>([]);
+  const [nameEntryDone, setNameEntryDone] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const startTime = useRef<number | null>(null);
   const hasEnded = useRef(false);
@@ -40,7 +48,7 @@ export default function MostLikelyToPage() {
     startTime.current = Date.now();
     return () => {
       if (hasEnded.current || startTime.current === null) return;
-      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
+      const duration = Math.round((Date.now() - startTime.current) / 1000);
       const props = {
         game: "most-likely-to",
         duration_seconds: duration,
@@ -53,7 +61,7 @@ export default function MostLikelyToPage() {
     };
   }, []);
 
-  const players = playerNames ?? [];
+  const players = playerNames;
   const playerCount = players.length;
   const currentTrait = traits[0];
 
@@ -77,7 +85,9 @@ export default function MostLikelyToPage() {
   );
 
   const handleSetupStart = async (count: number) => {
+    initPlayerNames(count);
     setTotalVotes(Array.from({ length: count }, () => 0));
+    setNameEntryDone(new Set());
     console.log("[Analytics]", "most_likely_to_game_start", { mode, playerCount: count });
     posthog.capture("most_likely_to_game_start", { mode, playerCount: count });
     setPhase("loading");
@@ -89,8 +99,28 @@ export default function MostLikelyToPage() {
     } catch (err) {
       console.log("[Analytics]", "api_error", { game: "most-likely-to", error: String(err) });
       posthog.capture("api_error", { game: "most-likely-to", error: String(err) });
-      setError("Shuffling the deck... try again!");
+      setError("Shuffling the deck, try again.");
     }
+  };
+
+  const handlePassReady = () => {
+    clickCount.current += 1;
+    if (nameEntryDone.has(voterIndex)) {
+      setPhase("vote");
+    } else {
+      setPhase("name-entry");
+    }
+  };
+
+  const handleNameEntryReady = () => {
+    clickCount.current += 1;
+    vibrate(20);
+    setNameEntryDone((prev) => {
+      const next = new Set(prev);
+      next.add(voterIndex);
+      return next;
+    });
+    setPhase("vote");
   };
 
   const handleVote = (playerIdx: number) => {
@@ -100,7 +130,6 @@ export default function MostLikelyToPage() {
     setVotes(newVotes);
 
     if (voterIndex + 1 >= playerCount) {
-      // Tally and reveal
       const tally = Array.from({ length: playerCount }, () => 0);
       newVotes.forEach((idx) => {
         tally[idx] = (tally[idx] ?? 0) + 1;
@@ -123,7 +152,7 @@ export default function MostLikelyToPage() {
     } catch (err) {
       console.log("[Analytics]", "api_error", { game: "most-likely-to", error: String(err) });
       posthog.capture("api_error", { game: "most-likely-to", error: String(err) });
-      setError("Shuffling the deck... try again!");
+      setError("Shuffling the deck, try again.");
     }
   }, [fetchTraits, mode, globalExcludeList]);
 
@@ -185,7 +214,7 @@ export default function MostLikelyToPage() {
         .catch((err) => {
           console.log("[Analytics]", "api_error", { game: "most-likely-to", error: String(err) });
           posthog.capture("api_error", { game: "most-likely-to", error: String(err) });
-          setError("Shuffling the deck... try again!");
+          setError("Shuffling the deck, try again.");
         });
       return;
     }
@@ -206,6 +235,8 @@ export default function MostLikelyToPage() {
     setVotes([]);
     setTotalVotes(Array.from({ length: playerCount }, () => 0));
     setUsedTraits([]);
+    setNameEntryDone(new Set());
+    initPlayerNames(playerCount);
     startTime.current = Date.now();
     hasEnded.current = false;
     clickCount.current = 0;
@@ -213,30 +244,46 @@ export default function MostLikelyToPage() {
     setPhase("setup");
   };
 
-  // For reveal: tally this round's votes
-  const thisRoundTally = (): { name: string; count: number; voters: string[] }[] => {
-    const tally: Record<number, { count: number; voters: string[] }> = {};
+  // For reveal: tally this round's votes (top 3)
+  const thisRoundTally = (): { idx: number; count: number; voters: number[] }[] => {
+    const tally: Record<number, { count: number; voters: number[] }> = {};
     votes.forEach((votedFor, voterIdx) => {
       if (!tally[votedFor]) tally[votedFor] = { count: 0, voters: [] };
       tally[votedFor].count += 1;
-      tally[votedFor].voters.push(players[voterIdx]);
+      tally[votedFor].voters.push(voterIdx);
     });
     const arr = Object.entries(tally).map(([idx, t]) => ({
-      name: players[Number(idx)],
+      idx: Number(idx),
       count: t.count,
       voters: t.voters,
     }));
     return arr.sort((a, b) => b.count - a.count).slice(0, 3);
   };
 
-  const computeWinners = (): string => {
+  const buildEndSection = (): EndSection[] => {
     const max = Math.max(...totalVotes, 0);
-    if (max === 0) return players.join(", ");
-    return totalVotes
-      .map((c, i) => ({ count: c, name: players[i] }))
+    if (max === 0) {
+      return [];
+    }
+    const indices = totalVotes
+      .map((c, i) => ({ count: c, i }))
       .filter((p) => p.count === max)
-      .map((p) => p.name)
-      .join(", ");
+      .sort((a, b) => a.i - b.i)
+      .map((p) => p.i);
+    return [
+      {
+        emoji: "👑",
+        label: "Winner",
+        names: (
+          <>
+            {indices.map((i) => (
+              <PlayerName key={i} index={i} size="md" />
+            ))}
+          </>
+        ),
+        subtitle: `Voted for ${max} ${max === 1 ? "time" : "times"}`,
+      },
+    ];
   };
 
   if (phase === "setup") {
@@ -268,9 +315,9 @@ export default function MostLikelyToPage() {
 
         <PlayerSetup
           gameTitle="Most Likely To"
-          requireNames={true}
           minPlayers={3}
           maxPlayers={16}
+          defaultPlayers={6}
           onStart={handleSetupStart}
         />
       </div>
@@ -338,18 +385,40 @@ export default function MostLikelyToPage() {
             </motion.div>
           )}
 
-          {phase === "pass" && players[voterIndex] && (
+          {phase === "pass" && players[voterIndex] !== undefined && (
             <PassPhone
               key={`pass-${round}-${voterIndex}`}
-              playerName={players[voterIndex]}
-              onReady={() => {
-                clickCount.current += 1;
-                setPhase("vote");
-              }}
+              player={<PlayerName index={voterIndex} size="lg" />}
+              onReady={handlePassReady}
             />
           )}
 
-          {phase === "vote" && currentTrait && players[voterIndex] && (
+          {phase === "name-entry" && (
+            <motion.div
+              key={`name-${round}-${voterIndex}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="w-full max-w-sm flex flex-col items-center gap-5"
+            >
+              <h2 className="font-display text-2xl text-cream text-center mt-4">
+                What&apos;s your name?
+              </h2>
+              <PlayerName index={voterIndex} size="lg" prominent />
+              <p className="font-body text-silver text-xs text-center">
+                or tap Ready to play as Player {voterIndex + 1}
+              </p>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleNameEntryReady}
+                className="w-full py-3 rounded-lg bg-gold text-felt-dark font-display text-base font-bold tracking-wide min-h-[48px]"
+              >
+                Ready
+              </motion.button>
+            </motion.div>
+          )}
+
+          {phase === "vote" && currentTrait && players[voterIndex] !== undefined && (
             <motion.div
               key={`vote-${round}-${voterIndex}`}
               initial={{ opacity: 0, x: 50 }}
@@ -358,16 +427,18 @@ export default function MostLikelyToPage() {
               className="w-full max-w-sm"
             >
               <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-4 mb-4">
-                <p className="font-body text-cream/50 text-xs text-center mb-1">
-                  {players[voterIndex]}: who&apos;s most likely to
-                </p>
+                <div className="font-body text-cream/50 text-xs text-center mb-1 flex items-center justify-center gap-1 flex-wrap">
+                  <PlayerName index={voterIndex} size="sm" />
+                  <span>: who&apos;s most likely to</span>
+                </div>
                 <p className="font-display text-cream text-base text-center leading-snug">
                   {currentTrait}?
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {players.map((name, idx) =>
+                {/* Render in seating order, exclude current voter. No shuffling. */}
+                {players.map((_, idx) =>
                   idx === voterIndex ? null : (
                     <motion.button
                       key={idx}
@@ -375,7 +446,7 @@ export default function MostLikelyToPage() {
                       onClick={() => handleVote(idx)}
                       className="py-3 px-3 rounded-lg bg-felt-light/40 border border-gold/20 text-cream font-body text-sm font-medium min-h-[52px] leading-tight"
                     >
-                      {name}
+                      <PlayerName index={idx} size="sm" />
                     </motion.button>
                   )
                 )}
@@ -404,7 +475,7 @@ export default function MostLikelyToPage() {
               <div className="flex flex-col gap-2 mb-4">
                 {thisRoundTally().map((entry, i) => (
                   <motion.div
-                    key={entry.name}
+                    key={entry.idx}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 + i * 0.1 }}
@@ -414,18 +485,27 @@ export default function MostLikelyToPage() {
                         : "bg-felt-dark/40 border border-gold/10"
                     }`}
                   >
-                    <div className="flex items-baseline justify-between mb-1">
-                      <span className="font-display text-cream text-base font-bold">
-                        {i === 0 && "🍸 "}
-                        {entry.name}
+                    <div className="flex items-baseline justify-between mb-1 gap-2">
+                      <span className="flex items-baseline gap-1">
+                        {i === 0 && <span>🍸</span>}
+                        <PlayerName index={entry.idx} size="md" />
                       </span>
                       <span className="font-body text-gold text-sm">
                         {entry.count} {entry.count === 1 ? "vote" : "votes"}
                       </span>
                     </div>
-                    <p className="font-body text-cream/50 text-xs">
-                      Voted by: {entry.voters.join(", ")}
-                    </p>
+                    <div className="font-body text-cream/50 text-xs flex items-baseline gap-1 flex-wrap">
+                      <span>Voted by:</span>
+                      {entry.voters.map((vIdx, j) => (
+                        <span
+                          key={vIdx}
+                          className="inline-flex items-baseline gap-1"
+                        >
+                          <PlayerName index={vIdx} size="sm" />
+                          {j < entry.voters.length - 1 && <span>,</span>}
+                        </span>
+                      ))}
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -443,15 +523,12 @@ export default function MostLikelyToPage() {
           {phase === "end" && (
             <EndScreen
               key="end"
-              variant="custom"
-              emoji="👑"
-              resultLabel="Winner"
-              resultValue={computeWinners()}
-              message={
-                computeWinners().includes(",")
-                  ? "A tie at the top!"
-                  : "The most-voted of the night."
-              }
+              variant="sections"
+              sections={buildEndSection()}
+              fallback={{
+                emoji: "🤝",
+                message: "No clear winner this round. Play again to crown one.",
+              }}
               onPlayAgain={handlePlayAgain}
             />
           )}

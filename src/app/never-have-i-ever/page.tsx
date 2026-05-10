@@ -26,10 +26,10 @@ const TIERS = [
 ];
 
 export default function NeverHaveIEverPage() {
-  const { globalExcludeList, addToExcludeList } = useGame();
+  const { globalExcludeList, addToExcludeList, initPlayerNames } = useGame();
   const [phase, setPhase] = useState<Phase>("setup");
   const [spiceLevel, setSpiceLevel] = useState<SpiceLevel>("mild");
-  const [playerCount, setPlayerCount] = useState(3);
+  const [playerCount, setPlayerCount] = useState(6);
   const [statements, setStatements] = useState<string[]>([]);
   const [usedStatements, setUsedStatements] = useState<string[]>([]);
   const [round, setRound] = useState(1);
@@ -45,7 +45,7 @@ export default function NeverHaveIEverPage() {
     startTime.current = Date.now();
     return () => {
       if (hasEnded.current || startTime.current === null) return;
-      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
+      const duration = Math.round((Date.now() - startTime.current) / 1000);
       const props = {
         game: "never-have-i-ever",
         duration_seconds: duration,
@@ -82,6 +82,7 @@ export default function NeverHaveIEverPage() {
   const handleSetupStart = useCallback(
     async (count: number) => {
       setPlayerCount(count);
+      initPlayerNames(count);
       console.log("[Analytics]", "nhie_game_start", { spiceLevel, playerCount: count });
       posthog.capture("nhie_game_start", { spiceLevel, playerCount: count });
       setPhase("loading");
@@ -93,10 +94,10 @@ export default function NeverHaveIEverPage() {
       } catch (err) {
         console.log("[Analytics]", "api_error", { game: "never-have-i-ever", error: String(err) });
         posthog.capture("api_error", { game: "never-have-i-ever", error: String(err) });
-        setError("Shuffling the deck... try again!");
+        setError("Shuffling the deck, try again.");
       }
     },
-    [fetchStatements, spiceLevel, globalExcludeList]
+    [fetchStatements, spiceLevel, globalExcludeList, initPlayerNames]
   );
 
   const retryFetch = useCallback(async () => {
@@ -109,7 +110,7 @@ export default function NeverHaveIEverPage() {
     } catch (err) {
       console.log("[Analytics]", "api_error", { game: "never-have-i-ever", error: String(err) });
       posthog.capture("api_error", { game: "never-have-i-ever", error: String(err) });
-      setError("Shuffling the deck... try again!");
+      setError("Shuffling the deck, try again.");
     }
   }, [fetchStatements, spiceLevel, globalExcludeList]);
 
@@ -145,9 +146,7 @@ export default function NeverHaveIEverPage() {
       const depravity = Math.round((newTotal / maxPossible) * 100);
       console.log("[Analytics]", "nhie_game_complete", { depravity, spiceLevel, playerCount });
       posthog.capture("nhie_game_complete", { depravity, spiceLevel, playerCount });
-      const duration = Math.round(
-        (Date.now() - (startTime.current ?? Date.now())) / 1000,
-      );
+      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
       const sessionProps = {
         game: "never-have-i-ever",
         duration_seconds: duration,
@@ -181,6 +180,7 @@ export default function NeverHaveIEverPage() {
     setTotalYeses(0);
     setYesCount(0);
     setUsedStatements([]);
+    initPlayerNames(playerCount);
     startTime.current = Date.now();
     hasEnded.current = false;
     clickCount.current = 0;
@@ -226,9 +226,9 @@ export default function NeverHaveIEverPage() {
 
         <PlayerSetup
           gameTitle="Never Have I Ever"
-          requireNames={false}
           minPlayers={3}
           maxPlayers={16}
+          defaultPlayers={6}
           onStart={handleSetupStart}
         />
       </div>

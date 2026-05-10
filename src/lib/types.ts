@@ -2,7 +2,7 @@ export type GameId =
   | 'never-have-i-ever'
   | 'would-you-rather'
   | 'most-likely-to'
-  | 'call-your-bluff';
+  | 'bold-claims';
 
 export type SpiceLevel = 'mild' | 'spicy' | 'villain';
 
@@ -43,21 +43,19 @@ export const MOST_LIKELY_TO_MODES: MostLikelyToOption[] = [
   { value: 'spicy', label: '🌶️ Spicy' },
 ];
 
-export type CallYourBluffMode = 'silly' | 'personal';
+export type BoldClaimsMode = 'silly' | 'personal';
 
-export interface CallYourBluffOption {
-  value: CallYourBluffMode;
+export interface BoldClaimsOption {
+  value: BoldClaimsMode;
   label: string;
 }
 
-export const CALL_YOUR_BLUFF_MODES: CallYourBluffOption[] = [
+export const BOLD_CLAIMS_MODES: BoldClaimsOption[] = [
   { value: 'silly', label: '😇 Silly' },
   { value: 'personal', label: '😈 Personal' },
 ];
 
-export interface CallYourBluffTrait {
+export interface BoldClaimsTrait {
   singular: string;
   plural: string;
 }
-
-export type PlayerNames = string[];

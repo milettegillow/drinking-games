@@ -11,6 +11,8 @@
   --gold: #d4a845;
   --gold-light: #e8c97a;
   --silver: #a8b2b8;
+  --success-green: #2e7d46;
+  --alert-red: #c41e3a;
 }
 
 @theme inline {
@@ -23,6 +25,8 @@
   --color-gold: var(--gold);
   --color-gold-light: var(--gold-light);
   --color-silver: var(--silver);
+  --color-success-green: var(--success-green);
+  --color-alert-red: var(--alert-red);
   --font-display: var(--font-dm-serif);
   --font-body: var(--font-josefin);
 }

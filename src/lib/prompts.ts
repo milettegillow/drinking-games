@@ -1,6 +1,6 @@
 import { GameId, SpiceLevel } from "./types";
 
-const SYSTEM_PROMPT = `You are a sharp, irreverent host for "party games" — a group drinking game played in a circle of friends (3 to 16 players, mixed genders, mostly in their 20s and 30s). Your job is to write content that lands with a friend group on a night out: funny, bold, occasionally provocative, never crude for the sake of it.
+const SYSTEM_PROMPT = `You are a sharp, irreverent host for "party games", a group drinking game played in a circle of friends (3 to 16 players, mixed genders, mostly in their 20s and 30s). Your job is to write content that lands with a friend group on a night out: funny, bold, occasionally provocative, never crude for the sake of it.
 
 You are NOT writing for couples. You are NOT writing for date night. Never reference "your partner", "your date", "your relationship", "the person you're playing with", or anything that assumes the players are romantically involved. The audience is a group of friends.
 
@@ -91,17 +91,17 @@ const MLT_VARIANTS: Record<string, string[]> = {
   ],
 };
 
-const CYB_VARIANTS: Record<string, string[]> = {
+const BOLD_CLAIMS_VARIANTS: Record<string, string[]> = {
   silly: [
     "Focus on physical comedy traits and clumsy moments.",
-    "Focus on social/party traits — loudness, dancing, energy.",
-    "Focus on skill traits — trivia, memory, coordination, talents.",
-    "Focus on quirky habit traits — sleep, food, caffeine, routines.",
-    "Focus on charm and presence traits — storytelling, photogenic, magnetism.",
+    "Focus on social and party traits: loudness, dancing, energy.",
+    "Focus on skill traits: trivia, memory, coordination, talents.",
+    "Focus on quirky habit traits: sleep, food, caffeine, routines.",
+    "Focus on charm and presence traits: storytelling, photogenic, magnetism.",
   ],
   personal: [
     "Focus on physical attractiveness and presence.",
-    "Focus on social charm — charisma, confidence, magnetism.",
+    "Focus on social charm: charisma, confidence, magnetism.",
     "Focus on style and presentation.",
     "Focus on bedroom-adjacent desirability without being explicit.",
     "Focus on ambition, success, and life-quality traits.",
@@ -143,7 +143,7 @@ function buildExcludeClause(exclude?: string[]): string {
   // Cap at 100 most recent items to avoid overly long prompts
   const capped = exclude.slice(-100);
 
-  return `\n\nCRITICAL — DO NOT REPEAT: The following items have been shown across ALL games in this session. Do NOT repeat them, rephrase them, or generate anything with substantially the same meaning or theme. If an item mentions messiness, do not generate anything about messiness. If an item mentions cheating, do not generate anything about cheating. Treat the entire list as off-limits territory — not just identical matches but also variations on the same topic or concept:\n${capped.map((e) => `- "${e}"`).join("\n")}`;
+  return `\n\nCRITICAL, DO NOT REPEAT: The following items have been shown across ALL games in this session. Do NOT repeat them, rephrase them, or generate anything with substantially the same meaning or theme. If an item mentions messiness, do not generate anything about messiness. If an item mentions cheating, do not generate anything about cheating. Treat the entire list as off-limits territory, not just identical matches but also variations on the same topic or concept:\n${capped.map((e) => `- "${e}"`).join("\n")}`;
 }
 
 export function buildUserPrompt(
@@ -189,7 +189,7 @@ Morally dark examples: "cheated on a partner", "lied to the police", "deliberate
 Bad examples (these belong in Spicy, not Villain): "had a one-night stand", "kissed a stranger", "sent a nude to the wrong person", "gone skinny dipping"`,
       };
 
-      return `Generate ${count} "Never have I ever" statement completions at the "${nhieLevel}" spice level for a GROUP party game (3-16 friends in a circle).
+      return `Generate ${count} "Never have I ever" statement completions at the "${nhieLevel}" spice level for a GROUP party game (3 to 16 friends in a circle).
 
 ${spiceInstructions[nhieLevel]}
 
@@ -199,10 +199,10 @@ CREATIVE SEED (apply to at most 1 item, not the whole batch): ${nhieSeed}
 RULES (follow these strictly):
 - The ${count} items must cover a wide range of different subjects. NEVER have two items about the same topic, theme, or subject area. Diversity is critical.
 - Every statement must be a single, specific thing. NEVER combine two things with "or".
-- Never use emdashes. Use parentheses if clarification is needed.
+- Never use em dashes or en dashes. Use parentheses, commas, or periods if clarification is needed.
 - Statements must be specific enough to trigger a story. If someone has done it, they should immediately remember when and where. Vague, mundane things that everyone has done are bad.
 - No editorialising or commentary. Just state the thing plainly.
-- These are written in first person ("I"), about things you have done in your life. NEVER reference "your partner", "your date", or any couples framing — the players are a group of friends, not a couple.
+- These are written in first person ("I"), about things you have done in your life. NEVER reference "your partner", "your date", or any couples framing. The players are a group of friends, not a couple.
 - Use British English spelling throughout.
 - Each statement must be distinct from the others in the batch.
 
@@ -218,59 +218,54 @@ Example: ["hitchhiked", "crashed a wedding", "gone swimming in the sea at night"
       const wyrCategoryInstructions: Record<string, string> = {
         silly: `SILLY category. Absurd, hypothetical, funny. The options should be ridiculous enough to be funny but specific enough to be genuinely debatable. Think "pub argument that gets way too heated for what it is."
 
-Good examples:
-- "have fingers as long as your legs" / "have legs as long as your fingers"
-- "always smell faintly of onions" / "always have slightly damp socks"
-- "your only mode of transport is a horse" / "your only mode of transport is a canoe"
-- "every time you sneeze you audibly moan" / "every time you laugh you do a full pig snort"
-- "have to wear a wedding dress to every casual event" / "pyjamas to every formal event"
-- "your life has a permanent backing track that everyone can hear" / "a live studio audience that reacts to everything you do"
-- "be able to fly but only at walking speed" / "run at 200mph but only on all fours"
-- "give up cheese forever" / "give up every hot drink forever"
-- "never be able to use a door (windows, climbing, etc. only)" / "never be able to sit down"
+These five anchors set the exact tone and intensity for the silly category. New generations should match this energy: weird, specific, debatable, equally bad on both sides.
 
-Bad examples: cliché internet questions everyone has heard (horse-sized duck, etc.), anything referencing the players' relationship`,
+ANCHORS (match this tone and intensity):
+1. "only be able to whisper for the rest of your life" / "only be able to shout"
+2. "always smell faintly of garlic" / "always smell faintly of cheese"
+3. "only be able to communicate in song lyrics" / "only be able to communicate in movie quotes"
+4. "talk like a pirate forever" / "talk like a Victorian aristocrat forever"
+5. "have hands for feet" / "feet for hands"
+
+Bad examples: cliché internet questions everyone has heard (horse-sized duck, etc.), anything referencing the players' relationship.`,
 
         deep: `DEEP category. Genuinely thought-provoking dilemmas about life, identity, values, and mortality. These should stick with you after the game. Both options should represent a real philosophical trade-off.
 
-Good examples:
-- "know the date of your death" / "know the cause"
-- "be wildly successful at a job you hate" / "mediocre at something you love"
-- "everyone you meet instantly trusts you" / "everyone you meet instantly respects you"
-- "be the funniest person in every room" / "the smartest"
-- "lose all your money" / "lose all your photos and memories"
-- "live a comfortable, unremarkable life" / "a turbulent, extraordinary one"
-- "peak at 25" / "peak at 55"
-- "be remembered for something you didn't do" / "forgotten for something amazing you did"
-- "have a rewind button for your life (but you can only use it once)" / "a pause button you can use whenever you want"
-- "live twice as long at half the intensity" / "half as long at double the intensity"`,
+These five anchors set the exact tone and intensity for the deep category. New generations should match this energy: existentially weighty, no obvious right answer, both options trigger real consideration.
+
+ANCHORS (match this tone and intensity):
+1. "know exactly when you'll die" / "know exactly how you'll die"
+2. "always know when someone is lying to you" / "always be believed when you lie"
+3. "find your soulmate but never meet them" / "never find them but live a happy life regardless"
+4. "read every mind in the room" / "have everyone in the room read yours"
+5. "forget your entire past" / "never be able to forget anything"`,
 
         cursed: `CURSED category. Both options are horrible. The reaction should be an immediate "oh NO" followed by agonised deliberation.
 
-IMPORTANT: Cursed questions are NOT silly body-modification hypotheticals. Those are Silly. Cursed means both options make you physically cringe, squirm, or feel deeply uncomfortable. Think: gross sensory experiences with real things (licking a pub floor, sharing a toothbrush), excruciating social embarrassment (your parents seeing your search history, your nudes being leaked), or horrible real-world choices. The test: if someone laughs immediately, it's Silly. If someone grimaces and says "oh god, neither", it's Cursed.
+IMPORTANT: Cursed questions are NOT silly body-modification hypotheticals. Those are Silly. Cursed means both options make you physically cringe, squirm, or feel deeply uncomfortable. The test: if someone laughs immediately, it's Silly. If someone grimaces and says "oh god, neither", it's Cursed.
 
-Good examples:
-- "walk in on your parents" / "have your parents walk in on you"
-- "lick the floor of a pub bathroom" / "drink a shot of a stranger's bathwater"
-- "sit through a detailed PowerPoint of your parents' sex life" / "have them sit through one of yours"
-- "every chair you sit on is slightly warm (as if someone just got up)" / "every drink you're handed has a single hair floating in it"
-- "share a toothbrush with a stranger for a year" / "wear the same underwear for a month"
-- "bite into every apple and find half a worm" / "feel something brush against your foot in every body of water you enter"
-- "have a counter above your head showing how many people in the room have seen you naked" / "have your Spotify listening history displayed above your head at all times"
-- "eat a bowl of toenail clippings" / "drink a glass of someone else's sweat"
-- "your group chat history is read aloud at your next family dinner" / "your boss reads your entire search history"
+These five anchors set the exact tone and intensity for the cursed category. New generations should match this energy: viscerally uncomfortable, gross, socially mortifying, no escape on either side.
 
-Bad examples (these are Silly, NOT Cursed): "sweat maple syrup", "have fingers for legs", "sneeze confetti", "your tears are hot sauce"`,
+ANCHORS (match this tone and intensity):
+1. "discover a single pubic hair in every meal you eat for the rest of your life" / "find a fingernail clipping in every drink"
+2. "accidentally send a nude to your boss" / "accidentally send a nude to your mum"
+3. "swallow a teaspoon of someone else's earwax" / "swallow a teaspoon of someone else's blood"
+4. "wear the same underwear for a month" / "wear underwear strangers have worn for one day each, in rotation"
+5. "find out everyone you've ever kissed kept a private rating spreadsheet" / "find out your friends have a group chat dedicated to your worst moments"
+
+Bad examples (these are Silly, NOT Cursed): "sweat maple syrup", "have fingers for legs", "sneeze confetti", "your tears are hot sauce".`,
 
         shuffle: `SHUFFLE mode. Return a mix of questions with roughly equal distribution across three categories: silly, deep, and cursed. Tag each item with its category.
 
 Refer to these descriptions:
 - SILLY: Absurd, hypothetical, funny pub arguments
 - DEEP: Thought-provoking dilemmas about life, identity, values, mortality
-- CURSED: Both options are horrible, gross, or deeply uncomfortable`,
+- CURSED: Both options are horrible, gross, or deeply uncomfortable
+
+Match the tone and intensity already established for each category. The silly items should be weird-and-debatable, the deep items existentially weighty, the cursed items viscerally uncomfortable.`,
       };
 
-      return `Generate ${count} "Would you rather" dilemmas for the "${wyrCategory}" category. This is a GROUP party game (3-16 friends in a circle).
+      return `Generate ${count} "Would you rather" dilemmas for the "${wyrCategory}" category. This is a GROUP party game (3 to 16 friends in a circle).
 
 ${wyrCategoryInstructions[wyrCategory]}
 
@@ -279,7 +274,7 @@ CREATIVE SEED (apply to at most 1 item, not the whole batch): ${wyrSeed}
 
 RULES (follow these strictly):
 - The ${count} items must cover a wide range of different subjects. NEVER have two items about the same topic, theme, or subject area. Diversity is critical.
-- Never use emdashes. Use parentheses if clarification is needed.
+- Never use em dashes or en dashes. Use parentheses, commas, or periods if clarification is needed.
 - Both options must be genuinely hard to choose between. If one option is obviously better, the question fails.
 - Keep options concise. Each option should ideally be under 15 words.
 - NEVER reference the players' relationship with each other, dating, romance, or "your partner". Audience is friends.
@@ -299,7 +294,7 @@ Example: [{"optionA": "give up cheese forever", "optionB": "give up every hot dr
       const modeInstructions: Record<string, string> = {
         silly: `SILLY mode. Light, funny, embarrassing-but-harmless traits. Things that make the group laugh and immediately point at someone. No sexual content, no genuinely hurtful traits.
 
-Good examples (in the style we want — these are completions for "Most likely to ___"):
+Good examples (in the style we want, completions for "Most likely to ___"):
 - "lose their phone tonight"
 - "fall asleep on the sofa first"
 - "start karaoke at 3am"
@@ -379,10 +374,10 @@ CREATIVE SEED (apply to at most 1 item, not the whole batch): ${mltSeed}
 
 RULES (follow these strictly):
 - The ${count} items must cover a wide range of different subjects. NEVER have two items about the same topic, theme, or subject area. Diversity is critical.
-- Each item is a verb phrase that completes "Most likely to ___". Start with a verb (lose, fall, text, hook up, send, etc.) — never a noun.
-- Use third-person singular references ("their", "they") when needed — the players will pick which person fits.
+- Each item is a verb phrase that completes "Most likely to ___". Start with a verb (lose, fall, text, hook up, send, etc.), never a noun.
+- Use third-person singular references ("their", "they") when needed. The players will pick which person fits.
 - Never reference "your partner", couples framing, or assume any romantic relationship between players.
-- Never use emdashes. Use parentheses if clarification is needed.
+- Never use em dashes or en dashes. Use parentheses, commas, or periods if clarification is needed.
 - British English spelling throughout.
 - Keep each item concise (one short sentence, ideally under 12 words).
 - Each trait should make the group immediately think of someone specific.
@@ -391,15 +386,15 @@ Return a JSON array of ${count} strings.
 Example: ["lose their phone tonight", "fall asleep on the sofa first", "start karaoke at 3am"]${excludeClause}`;
     }
 
-    case "call-your-bluff": {
+    case "bold-claims": {
       const mode = options.mode || "silly";
-      const cybVariant = pickRandom(CYB_VARIANTS[mode] || CYB_VARIANTS.silly);
-      const cybSeed = getRandomSeed();
+      const bcVariant = pickRandom(BOLD_CLAIMS_VARIANTS[mode] || BOLD_CLAIMS_VARIANTS.silly);
+      const bcSeed = getRandomSeed();
 
       const modeInstructions: Record<string, string> = {
-        silly: `SILLY mode. Light, observable traits — funny, social, skill-based, quirky. The kind of thing where standing up is a mild claim, not a confession.
+        silly: `SILLY mode. Light, observable traits: funny, social, skill-based, quirky. The kind of thing where standing up is a mild claim, not a confession.
 
-Good examples (provided as singular forms — you must produce both singular and plural):
+Good examples (provided as singular forms, you must produce both singular and plural):
 - "funniest"
 - "loudest"
 - "clumsiest"
@@ -421,9 +416,9 @@ Good examples (provided as singular forms — you must produce both singular and
 - "heaviest sleeper"
 - "best at parallel parking"`,
 
-        personal: `PERSONAL mode. The trait must be DESIRABLE — something people would actually want to claim. The mechanic only works if standing up is attractive. Think: attractiveness, charisma, sexual confidence, success, magnetism. NEVER include negative or embarrassing traits in this mode.
+        personal: `PERSONAL mode. The trait must be DESIRABLE: something people would actually want to claim. The mechanic only works if standing up is attractive. Think attractiveness, charisma, sexual confidence, success, magnetism. NEVER include negative or embarrassing traits in this mode.
 
-Good examples (singular forms — all desirable):
+Good examples (singular forms, all desirable):
 - "most attractive"
 - "best in bed"
 - "most charming"
@@ -445,7 +440,7 @@ Good examples (singular forms — all desirable):
 - "best dressed"
 - "most adventurous"
 
-Bad examples (do NOT generate these — they are not desirable enough):
+Bad examples (do NOT generate these, they are not desirable enough):
 - "loudest"
 - "clumsiest"
 - "messiest"
@@ -453,7 +448,7 @@ Bad examples (do NOT generate these — they are not desirable enough):
 - anything self-deprecating`,
       };
 
-      return `Generate ${count} traits for the "Call Your Bluff" game in "${mode}" mode. Each trait will be plugged into two templates:
+      return `Generate ${count} traits for the "Bold Claims" game in "${mode}" mode. Each trait will be plugged into two templates:
 - "I am one of the X {plural} in the circle" (used when X >= 2)
 - "I am THE {singular} in the circle" (used when X = 1)
 
@@ -461,14 +456,14 @@ You must return BOTH a singular and a plural form for each trait. For traits tha
 
 ${modeInstructions[mode]}
 
-THEMATIC DIRECTION FOR THIS BATCH: ${cybVariant}
-CREATIVE SEED (apply to at most 1 item, not the whole batch): ${cybSeed}
+THEMATIC DIRECTION FOR THIS BATCH: ${bcVariant}
+CREATIVE SEED (apply to at most 1 item, not the whole batch): ${bcSeed}
 
 RULES (follow these strictly):
 - The ${count} items must cover a wide range of different traits. NEVER have two items about the same trait or theme. Diversity is critical.
 - Each trait must read naturally in BOTH templates. Test mentally: "I am one of the 3 X in the circle" and "I am THE X in the circle".
-- Each trait is a noun phrase or superlative ("funniest", "biggest flirt", "best dancer") — NOT a verb phrase, NOT a sentence.
-- Never use emdashes.
+- Each trait is a noun phrase or superlative ("funniest", "biggest flirt", "best dancer"). NOT a verb phrase, NOT a sentence.
+- Never use em dashes or en dashes.
 - British English spelling throughout.
 - Never reference "your partner", couples framing, or romance assumptions. Audience is friends.
 

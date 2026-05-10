@@ -1,60 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useGame } from "@/context/GameContext";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import { vibrate } from "@/lib/haptics";
 
 interface PlayerSetupProps {
   gameTitle: string;
   minPlayers?: number;
   maxPlayers?: number;
-  requireNames: boolean;
-  onStart: (count: number, names?: string[]) => void;
+  defaultPlayers?: number;
+  onStart: (count: number) => void;
 }
 
 export default function PlayerSetup({
   gameTitle,
   minPlayers = 3,
   maxPlayers = 16,
-  requireNames,
+  defaultPlayers = 6,
   onStart,
 }: PlayerSetupProps) {
-  const { playerNames, setPlayerNames } = useGame();
-
-  const initialFromContext = useMemo(() => {
-    if (!requireNames || !playerNames || playerNames.length === 0) return null;
-    return playerNames;
-  }, [playerNames, requireNames]);
-
-  const [count, setCount] = useState<number>(() => {
-    if (initialFromContext && initialFromContext.length >= minPlayers) {
-      return Math.min(initialFromContext.length, maxPlayers);
-    }
-    return minPlayers;
-  });
-
-  const [namesByCount, setNamesByCount] = useState<string[]>(() => {
-    const seed = initialFromContext ?? [];
-    return Array.from({ length: count }, (_, i) => seed[i] ?? "");
-  });
-  const [prevCount, setPrevCount] = useState(count);
-
-  // Adjust the names array during render when count changes.
-  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
-  let names = namesByCount;
-  if (prevCount !== count) {
-    if (namesByCount.length < count) {
-      names = [
-        ...namesByCount,
-        ...Array.from({ length: count - namesByCount.length }, () => ""),
-      ];
-    } else if (namesByCount.length > count) {
-      names = namesByCount.slice(0, count);
-    }
-    setPrevCount(count);
-    setNamesByCount(names);
-  }
+  const initial = Math.min(Math.max(defaultPlayers, minPlayers), maxPlayers);
+  const [count, setCount] = useState<number>(initial);
 
   const decrement = () => {
     if (count <= minPlayers) return;
@@ -67,27 +33,9 @@ export default function PlayerSetup({
     setCount((c) => c + 1);
   };
 
-  const updateName = (idx: number, value: string) => {
-    setNamesByCount((prev) => {
-      const next = [...prev];
-      next[idx] = value;
-      return next;
-    });
-  };
-
-  const cleanedNames = names.map((n) => n.trim());
-  const allNamesFilled = !requireNames || cleanedNames.every((n) => n.length > 0);
-  const canStart = allNamesFilled;
-
   const handleStart = () => {
-    if (!canStart) return;
     vibrate(30);
-    if (requireNames) {
-      setPlayerNames(cleanedNames);
-      onStart(count, cleanedNames);
-    } else {
-      onStart(count);
-    }
+    onStart(count);
   };
 
   return (
@@ -104,8 +52,7 @@ export default function PlayerSetup({
           How many players?
         </p>
 
-        {/* Number stepper */}
-        <div className="flex items-center justify-center gap-4 mb-5">
+        <div className="flex items-center justify-center gap-4 mb-6">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={decrement}
@@ -135,46 +82,10 @@ export default function PlayerSetup({
           </motion.button>
         </div>
 
-        {requireNames && (
-          <>
-            <p className="font-body text-cream/40 text-xs text-center mb-3 leading-snug">
-              Enter names in the order you&apos;re sitting, going round the circle.
-            </p>
-            <div className="flex flex-col gap-2 mb-5 max-h-[40vh] overflow-y-auto pr-1">
-              <AnimatePresence initial={false}>
-                {names.map((name, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                  >
-                    <label className="flex items-center gap-2">
-                      <span className="font-body text-cream/40 text-xs w-16 shrink-0">
-                        Player {idx + 1}
-                      </span>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => updateName(idx, e.target.value)}
-                        placeholder="Name"
-                        maxLength={20}
-                        className="flex-1 bg-felt-dark/50 border border-gold/20 rounded-lg px-3 py-2 font-body text-cream text-base placeholder:text-cream/30 focus:outline-none focus:border-gold/50 transition-colors"
-                      />
-                    </label>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </>
-        )}
-
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleStart}
-          disabled={!canStart}
-          className="w-full py-3 rounded-lg bg-gold text-felt-dark font-display text-base font-bold tracking-wide disabled:opacity-30 disabled:cursor-not-allowed transition-opacity min-h-[48px]"
+          className="w-full py-3 rounded-lg bg-gold text-felt-dark font-display text-base font-bold tracking-wide min-h-[48px]"
         >
           Start
         </motion.button>

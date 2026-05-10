@@ -8,7 +8,7 @@ const VALID_GAMES: GameId[] = [
   "never-have-i-ever",
   "would-you-rather",
   "most-likely-to",
-  "call-your-bluff",
+  "bold-claims",
 ];
 
 export async function POST(request: Request) {

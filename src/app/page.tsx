@@ -33,13 +33,13 @@ export default function Home() {
         </p>
       </motion.div>
 
-      {/* Game Cards Grid — J Q K A */}
+      {/* Game Cards Grid: J Q K A */}
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
         <GameCard
-          title="Call Your Bluff"
-          subtitle="Stand if you think it's you"
+          title="Would You Rather"
+          subtitle="Pick A or B"
           rank="J"
-          href="/call-your-bluff"
+          href="/would-you-rather"
           delay={0.1}
         />
         <GameCard
@@ -50,10 +50,10 @@ export default function Home() {
           delay={0.2}
         />
         <GameCard
-          title="Would You Rather"
-          subtitle="Pick A or B"
+          title="Bold Claims"
+          subtitle="Stand if you think it's you"
           rank="K"
-          href="/would-you-rather"
+          href="/bold-claims"
           delay={0.3}
         />
         <GameCard

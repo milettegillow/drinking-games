@@ -1,14 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 import { vibrate } from "@/lib/haptics";
 
 interface PassPhoneProps {
-  playerName: string;
+  /** Either a plain string (legacy) or a node (e.g. <PlayerName />) */
+  player: ReactNode;
   onReady: () => void;
 }
 
-export default function PassPhone({ playerName, onReady }: PassPhoneProps) {
+export default function PassPhone({ player, onReady }: PassPhoneProps) {
   const handleReady = () => {
     vibrate(30);
     onReady();
@@ -32,9 +34,9 @@ export default function PassPhone({ playerName, onReady }: PassPhoneProps) {
         <p className="font-body text-cream/60 text-sm mb-2">
           Pass the phone to
         </p>
-        <h2 className="font-display text-3xl text-gold font-bold mb-8">
-          {playerName}
-        </h2>
+        <div className="font-display text-3xl text-gold font-bold mb-8 flex items-center justify-center">
+          {player}
+        </div>
 
         <motion.button
           whileTap={{ scale: 0.95 }}

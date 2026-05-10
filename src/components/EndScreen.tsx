@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useGame } from "@/context/GameContext";
 import type { ReactNode } from "react";
 
 interface Tier {
@@ -30,7 +31,24 @@ interface CustomEndScreenProps {
   onPlayAgain: () => void;
 }
 
-type EndScreenProps = NumericEndScreenProps | CustomEndScreenProps;
+export interface EndSection {
+  emoji: string;
+  label: string;
+  names: ReactNode;
+  subtitle: string;
+}
+
+interface SectionsEndScreenProps {
+  variant: "sections";
+  sections: EndSection[];
+  fallback?: { emoji: string; message: string };
+  onPlayAgain: () => void;
+}
+
+type EndScreenProps =
+  | NumericEndScreenProps
+  | CustomEndScreenProps
+  | SectionsEndScreenProps;
 
 function getTier(score: number, tiers: Tier[]): Tier {
   const sorted = [...tiers].sort((a, b) => b.minScore - a.minScore);
@@ -66,6 +84,49 @@ function FloatingCrowns() {
 }
 
 export default function EndScreen(props: EndScreenProps) {
+  const { resetPlayerNames } = useGame();
+
+  const handlePlayAgain = () => {
+    resetPlayerNames();
+    props.onPlayAgain();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5 }}
+      className="w-full max-w-sm mx-auto text-center"
+    >
+      {props.variant === "sections" ? (
+        <SectionsBody {...props} />
+      ) : (
+        <SingleBody {...props} />
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-3 mt-6">
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={handlePlayAgain}
+          className="flex-1 py-3 rounded-lg bg-gold/20 text-gold font-body text-sm font-medium min-h-[48px]"
+        >
+          Play Again
+        </motion.button>
+        <Link href="/" className="flex-1" onClick={resetPlayerNames}>
+          <motion.div
+            whileTap={{ scale: 0.97 }}
+            className="py-3 rounded-lg border border-gold/20 text-cream/70 font-body text-sm font-medium text-center min-h-[48px] flex items-center justify-center"
+          >
+            Back to Menu
+          </motion.div>
+        </Link>
+      </div>
+    </motion.div>
+  );
+}
+
+function SingleBody(props: NumericEndScreenProps | CustomEndScreenProps) {
   const isCustom = props.variant === "custom";
 
   let emoji: string;
@@ -76,7 +137,7 @@ export default function EndScreen(props: EndScreenProps) {
   if (isCustom) {
     emoji = props.emoji;
     scoreNode = (
-      <p className="font-display text-4xl text-gold font-bold mb-2 leading-tight">
+      <p className="font-display text-3xl text-gold font-bold mb-2 leading-tight">
         {props.resultValue}
       </p>
     );
@@ -87,9 +148,10 @@ export default function EndScreen(props: EndScreenProps) {
   } else {
     const tier = getTier(props.score, props.tiers);
     emoji = tier.emoji;
-    const display = props.scoreSuffix !== undefined
-      ? `${props.score}${props.scoreSuffix}`
-      : `${props.score}/${props.maxScore}`;
+    const display =
+      props.scoreSuffix !== undefined
+        ? `${props.score}${props.scoreSuffix}`
+        : `${props.score}/${props.maxScore}`;
     scoreNode = (
       <>
         {props.scoreLabel && (
@@ -109,60 +171,84 @@ export default function EndScreen(props: EndScreenProps) {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5 }}
-      className="w-full max-w-sm mx-auto text-center"
-    >
+    <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-8 overflow-visible">
+      <motion.p
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300 }}
+        className="text-6xl mb-4"
+      >
+        {emoji}
+      </motion.p>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        {isCustom && (
+          <p className="font-body text-cream/40 text-xs uppercase tracking-wider mb-2">
+            {props.resultLabel}
+          </p>
+        )}
+        {scoreNode}
+        {messageNode}
+      </motion.div>
+
+      {crowns && <FloatingCrowns />}
+    </div>
+  );
+}
+
+function SectionsBody(props: SectionsEndScreenProps) {
+  if (props.sections.length === 0 && props.fallback) {
+    return (
       <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-8 overflow-visible">
-        {/* Emoji */}
         <motion.p
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300 }}
           className="text-6xl mb-4"
         >
-          {emoji}
+          {props.fallback.emoji}
         </motion.p>
-
-        {/* Score / result */}
-        <motion.div
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
+          className="font-body text-cream/80 text-base leading-relaxed"
         >
-          {isCustom && (
-            <p className="font-body text-cream/40 text-xs uppercase tracking-wider mb-2">
-              {props.resultLabel}
-            </p>
-          )}
-          {scoreNode}
-          {messageNode}
+          {props.fallback.message}
+        </motion.p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 overflow-visible">
+      {props.sections.map((section, i) => (
+        <motion.div
+          key={section.label}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 + i * 0.1 }}
+          className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-5 text-center"
+        >
+          <p className="text-3xl mb-2">{section.emoji}</p>
+          <p className="font-body text-cream/40 text-xs uppercase tracking-wider mb-2">
+            {section.label}
+          </p>
+          <div className="font-display text-2xl text-gold font-bold mb-1 leading-tight flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            {section.names}
+          </div>
+          <p className="font-body text-cream/60 text-xs">{section.subtitle}</p>
         </motion.div>
-
-        {/* Floating crowns for high scores */}
-        {crowns && <FloatingCrowns />}
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex gap-3 mt-6">
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={props.onPlayAgain}
-          className="flex-1 py-3 rounded-lg bg-gold/20 text-gold font-body text-sm font-medium min-h-[48px]"
-        >
-          Play Again
-        </motion.button>
-        <Link href="/" className="flex-1">
-          <motion.div
-            whileTap={{ scale: 0.97 }}
-            className="py-3 rounded-lg border border-gold/20 text-cream/70 font-body text-sm font-medium text-center min-h-[48px] flex items-center justify-center"
-          >
-            Back to Menu
-          </motion.div>
-        </Link>
-      </div>
-    </motion.div>
+      ))}
+      {props.sections.length > 0 && (
+        <div className="relative h-0">
+          <FloatingCrowns />
+        </div>
+      )}
+    </div>
   );
 }

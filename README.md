@@ -1,15 +1,15 @@
-# drinking games
+# party games
 
-Four games for the circle. A group party game built with Next.js.
+Four games for the circle. A group party app built with Next.js.
 
 Live at [partygames.milettegillow.com](https://partygames.milettegillow.com).
 
 ## The four games
 
-- **A — Never Have I Ever** — group depravity scoring
-- **K — Would You Rather** — vote A or B, find the most controversial player
-- **Q — Most Likely To** — anonymous votes for who fits the trait
-- **J — Call Your Bluff** — stand up if you think you're one of the X "best" in the circle
+- **J. Would You Rather** — vote A or B, find the most controversial and least interesting players
+- **Q. Most Likely To** — anonymous votes for who fits the trait
+- **K. Bold Claims** — stand up if you think you're one of the X "best" in the circle
+- **A. Never Have I Ever** — group depravity scoring
 
 ## Stack
 

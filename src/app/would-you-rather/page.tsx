@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useGame } from "@/context/GameContext";
 import PlayerSetup from "@/components/PlayerSetup";
+import PlayerName from "@/components/PlayerName";
 import PassPhone from "@/components/PassPhone";
 import ScoreTracker from "@/components/ScoreTracker";
-import EndScreen from "@/components/EndScreen";
+import EndScreen, { type EndSection } from "@/components/EndScreen";
 import LoadingState from "@/components/LoadingState";
 import { WouldYouRatherDilemma, WyrCategory, WYR_CATEGORIES } from "@/lib/types";
 import { vibrate } from "@/lib/haptics";
@@ -17,6 +18,7 @@ type Phase =
   | "setup"
   | "loading"
   | "pass"
+  | "name-entry"
   | "vote"
   | "reveal"
   | "end";
@@ -26,7 +28,8 @@ const TOTAL_ROUNDS = 10;
 type Vote = "A" | "B";
 
 export default function WouldYouRatherPage() {
-  const { playerNames, globalExcludeList, addToExcludeList } = useGame();
+  const { playerNames, globalExcludeList, addToExcludeList, initPlayerNames } =
+    useGame();
   const [phase, setPhase] = useState<Phase>("setup");
   const [category, setCategory] = useState<WyrCategory>("shuffle");
   const [dilemmas, setDilemmas] = useState<WouldYouRatherDilemma[]>([]);
@@ -34,8 +37,9 @@ export default function WouldYouRatherPage() {
   const [round, setRound] = useState(1);
   const [voterIndex, setVoterIndex] = useState(0);
   const [votes, setVotes] = useState<Vote[]>([]);
-  // minorityCounts: how many rounds each player was in the minority
   const [minorityCounts, setMinorityCounts] = useState<number[]>([]);
+  const [majorityCounts, setMajorityCounts] = useState<number[]>([]);
+  const [nameEntryDone, setNameEntryDone] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const recentCategories = useRef<string[]>([]);
   const startTime = useRef<number | null>(null);
@@ -47,7 +51,7 @@ export default function WouldYouRatherPage() {
     startTime.current = Date.now();
     return () => {
       if (hasEnded.current || startTime.current === null) return;
-      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
+      const duration = Math.round((Date.now() - startTime.current) / 1000);
       const props = {
         game: "would-you-rather",
         duration_seconds: duration,
@@ -60,7 +64,7 @@ export default function WouldYouRatherPage() {
     };
   }, []);
 
-  const players = playerNames ?? [];
+  const players = playerNames;
   const playerCount = players.length;
   const currentDilemma = dilemmas[0];
 
@@ -123,14 +127,17 @@ export default function WouldYouRatherPage() {
       } catch (err) {
         console.log("[Analytics]", "api_error", { game: "would-you-rather", error: String(err) });
         posthog.capture("api_error", { game: "would-you-rather", error: String(err) });
-        setError("Shuffling the deck... try again!");
+        setError("Shuffling the deck, try again.");
       }
     },
     [fetchDilemmas, usedDilemmas, globalExcludeList]
   );
 
   const handleSetupStart = (count: number) => {
+    initPlayerNames(count);
     setMinorityCounts(Array.from({ length: count }, () => 0));
+    setMajorityCounts(Array.from({ length: count }, () => 0));
+    setNameEntryDone(new Set());
     console.log("[Analytics]", "wyr_game_start", { category, playerCount: count });
     posthog.capture("wyr_game_start", { category, playerCount: count });
     loadDilemmas(category);
@@ -152,6 +159,26 @@ export default function WouldYouRatherPage() {
     }
   };
 
+  const handlePassReady = () => {
+    clickCount.current += 1;
+    if (nameEntryDone.has(voterIndex)) {
+      setPhase("vote");
+    } else {
+      setPhase("name-entry");
+    }
+  };
+
+  const handleNameEntryReady = () => {
+    clickCount.current += 1;
+    vibrate(20);
+    setNameEntryDone((prev) => {
+      const next = new Set(prev);
+      next.add(voterIndex);
+      return next;
+    });
+    setPhase("vote");
+  };
+
   const handleVote = (choice: Vote) => {
     clickCount.current += 1;
     vibrate(30);
@@ -159,7 +186,6 @@ export default function WouldYouRatherPage() {
     setVotes(newVotes);
 
     if (voterIndex + 1 >= playerCount) {
-      // All voted — go to reveal
       setPhase("reveal");
     } else {
       setVoterIndex((i) => i + 1);
@@ -167,20 +193,11 @@ export default function WouldYouRatherPage() {
     }
   };
 
-  const tallyForReveal = () => {
-    const aVoters = votes
-      .map((v, i) => (v === "A" ? i : -1))
-      .filter((i) => i >= 0);
-    const bVoters = votes
-      .map((v, i) => (v === "B" ? i : -1))
-      .filter((i) => i >= 0);
-    return { aVoters, bVoters };
-  };
-
   const handleNext = () => {
     clickCount.current += 1;
 
-    const { aVoters, bVoters } = tallyForReveal();
+    const aVoters = votes.map((v, i) => (v === "A" ? i : -1)).filter((i) => i >= 0);
+    const bVoters = votes.map((v, i) => (v === "B" ? i : -1)).filter((i) => i >= 0);
     const aCount = aVoters.length;
     const bCount = bVoters.length;
     const isUnanimous = aCount === 0 || bCount === 0;
@@ -188,9 +205,17 @@ export default function WouldYouRatherPage() {
 
     if (!isUnanimous && !isTie) {
       const minorityIndices = aCount < bCount ? aVoters : bVoters;
+      const majorityIndices = aCount < bCount ? bVoters : aVoters;
       setMinorityCounts((prev) => {
         const next = [...prev];
         minorityIndices.forEach((idx) => {
+          next[idx] = (next[idx] ?? 0) + 1;
+        });
+        return next;
+      });
+      setMajorityCounts((prev) => {
+        const next = [...prev];
+        majorityIndices.forEach((idx) => {
           next[idx] = (next[idx] ?? 0) + 1;
         });
         return next;
@@ -235,7 +260,9 @@ export default function WouldYouRatherPage() {
     if (round >= TOTAL_ROUNDS) {
       console.log("[Analytics]", "wyr_game_complete", { category, playerCount });
       posthog.capture("wyr_game_complete", { category, playerCount });
-      const duration = Math.round((Date.now() - (startTime.current ?? Date.now())) / 1000);
+      const duration = Math.round(
+        (Date.now() - (startTime.current ?? Date.now())) / 1000,
+      );
       const sessionProps = {
         game: "would-you-rather",
         duration_seconds: duration,
@@ -269,7 +296,7 @@ export default function WouldYouRatherPage() {
         .catch((err) => {
           console.log("[Analytics]", "api_error", { game: "would-you-rather", error: String(err) });
           posthog.capture("api_error", { game: "would-you-rather", error: String(err) });
-          setError("Shuffling the deck... try again!");
+          setError("Shuffling the deck, try again.");
         });
       return;
     }
@@ -289,8 +316,11 @@ export default function WouldYouRatherPage() {
     setVoterIndex(0);
     setVotes([]);
     setMinorityCounts(Array.from({ length: playerCount }, () => 0));
+    setMajorityCounts(Array.from({ length: playerCount }, () => 0));
     setUsedDilemmas([]);
+    setNameEntryDone(new Set());
     recentCategories.current = [];
+    initPlayerNames(playerCount);
     startTime.current = Date.now();
     hasEnded.current = false;
     clickCount.current = 0;
@@ -298,19 +328,57 @@ export default function WouldYouRatherPage() {
     loadDilemmas(category);
   };
 
-  // Compute end-screen "Most Controversial Player(s)"
-  const computeMostControversial = (): string => {
-    const max = Math.max(...minorityCounts, 0);
-    if (max === 0) return "";
-    const winners = minorityCounts
-      .map((c, i) => ({ count: c, name: players[i] }))
-      .filter((p) => p.count === max)
-      .map((p) => p.name);
-    return winners.join(", ");
+  const buildEndSections = (): EndSection[] => {
+    const maxMinority = Math.max(...minorityCounts, 0);
+    const maxMajority = Math.max(...majorityCounts, 0);
+
+    const sections: EndSection[] = [];
+
+    if (maxMinority > 0) {
+      const indices = minorityCounts
+        .map((c, i) => ({ count: c, i }))
+        .filter((p) => p.count === maxMinority)
+        .sort((a, b) => a.i - b.i)
+        .map((p) => p.i);
+      sections.push({
+        emoji: "🔥",
+        label: "Most Controversial",
+        names: (
+          <>
+            {indices.map((i) => (
+              <PlayerName key={i} index={i} size="md" />
+            ))}
+          </>
+        ),
+        subtitle: `In the minority ${maxMinority} ${maxMinority === 1 ? "time" : "times"}`,
+      });
+    }
+
+    if (maxMajority > 0) {
+      const indices = majorityCounts
+        .map((c, i) => ({ count: c, i }))
+        .filter((p) => p.count === maxMajority)
+        .sort((a, b) => a.i - b.i)
+        .map((p) => p.i);
+      sections.push({
+        emoji: "😴",
+        label: "Least Interesting",
+        names: (
+          <>
+            {indices.map((i) => (
+              <PlayerName key={i} index={i} size="md" />
+            ))}
+          </>
+        ),
+        subtitle: `Voted with the crowd ${maxMajority} ${maxMajority === 1 ? "time" : "times"}`,
+      });
+    }
+
+    return sections;
   };
 
   const showCategoryTabs =
-    phase === "pass" || phase === "vote" || phase === "reveal";
+    phase === "pass" || phase === "name-entry" || phase === "vote" || phase === "reveal";
 
   if (phase === "setup") {
     return (
@@ -353,9 +421,9 @@ export default function WouldYouRatherPage() {
 
         <PlayerSetup
           gameTitle="Would You Rather"
-          requireNames={true}
           minPlayers={3}
           maxPlayers={16}
+          defaultPlayers={6}
           onStart={handleSetupStart}
         />
       </div>
@@ -441,18 +509,40 @@ export default function WouldYouRatherPage() {
             </motion.div>
           )}
 
-          {phase === "pass" && players[voterIndex] && (
+          {phase === "pass" && players[voterIndex] !== undefined && (
             <PassPhone
               key={`pass-${round}-${voterIndex}`}
-              playerName={players[voterIndex]}
-              onReady={() => {
-                clickCount.current += 1;
-                setPhase("vote");
-              }}
+              player={<PlayerName index={voterIndex} size="lg" />}
+              onReady={handlePassReady}
             />
           )}
 
-          {phase === "vote" && currentDilemma && players[voterIndex] && (
+          {phase === "name-entry" && (
+            <motion.div
+              key={`name-${round}-${voterIndex}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="w-full max-w-sm flex flex-col items-center gap-5"
+            >
+              <h2 className="font-display text-2xl text-cream text-center mt-4">
+                What&apos;s your name?
+              </h2>
+              <PlayerName index={voterIndex} size="lg" prominent />
+              <p className="font-body text-silver text-xs text-center">
+                or tap Ready to play as Player {voterIndex + 1}
+              </p>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleNameEntryReady}
+                className="w-full py-3 rounded-lg bg-gold text-felt-dark font-display text-base font-bold tracking-wide min-h-[48px]"
+              >
+                Ready
+              </motion.button>
+            </motion.div>
+          )}
+
+          {phase === "vote" && currentDilemma && players[voterIndex] !== undefined && (
             <motion.div
               key={`vote-${round}-${voterIndex}`}
               initial={{ opacity: 0, x: 50 }}
@@ -461,8 +551,9 @@ export default function WouldYouRatherPage() {
               className="w-full max-w-sm"
             >
               <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-5 mb-4">
-                <p className="font-body text-cream/50 text-xs mb-1">
-                  {players[voterIndex]}, would you rather...
+                <p className="font-body text-cream/50 text-xs mb-1 flex items-center gap-1 flex-wrap">
+                  <PlayerName index={voterIndex} size="sm" />
+                  <span>, would you rather...</span>
                 </p>
               </div>
 
@@ -490,7 +581,6 @@ export default function WouldYouRatherPage() {
             <RevealScreen
               key={`reveal-${round}`}
               dilemma={currentDilemma}
-              players={players}
               votes={votes}
               isLastRound={round >= TOTAL_ROUNDS}
               onNext={handleNext}
@@ -499,33 +589,16 @@ export default function WouldYouRatherPage() {
 
           {phase === "end" && (
             (() => {
-              const winners = computeMostControversial();
-              if (!winners) {
-                return (
-                  <EndScreen
-                    key="end"
-                    variant="custom"
-                    emoji="🤝"
-                    resultLabel="Most Controversial Player"
-                    resultValue="No controversy"
-                    message="Perfectly aligned tonight."
-                    showCrowns={false}
-                    onPlayAgain={handlePlayAgain}
-                  />
-                );
-              }
+              const sections = buildEndSections();
               return (
                 <EndScreen
                   key="end"
-                  variant="custom"
-                  emoji="👑"
-                  resultLabel="Most Controversial Player"
-                  resultValue={winners}
-                  message={
-                    winners.includes(",")
-                      ? "A tie for hot takes!"
-                      : "The hottest takes of the night."
-                  }
+                  variant="sections"
+                  sections={sections}
+                  fallback={{
+                    emoji: "🤝",
+                    message: "Strangely well-balanced room tonight.",
+                  }}
                   onPlayAgain={handlePlayAgain}
                 />
               );
@@ -539,26 +612,25 @@ export default function WouldYouRatherPage() {
 
 interface RevealScreenProps {
   dilemma: WouldYouRatherDilemma;
-  players: string[];
   votes: Vote[];
   isLastRound: boolean;
   onNext: () => void;
 }
 
-function RevealScreen({ dilemma, players, votes, isLastRound, onNext }: RevealScreenProps) {
+function RevealScreen({ dilemma, votes, isLastRound, onNext }: RevealScreenProps) {
   useEffect(() => {
     vibrate(50);
   }, []);
 
   const aVoters = votes
-    .map((v, i) => (v === "A" ? players[i] : null))
-    .filter((n): n is string => !!n);
+    .map((v, i) => (v === "A" ? i : -1))
+    .filter((i) => i >= 0);
   const bVoters = votes
-    .map((v, i) => (v === "B" ? players[i] : null))
-    .filter((n): n is string => !!n);
+    .map((v, i) => (v === "B" ? i : -1))
+    .filter((i) => i >= 0);
 
   const isUnanimous = aVoters.length === 0 || bVoters.length === 0;
-  const isTie = aVoters.length === bVoters.length;
+  const isTie = aVoters.length === bVoters.length && aVoters.length > 0 && bVoters.length > 0;
   const everyoneDrinks = isUnanimous || isTie;
 
   const winningSide: "A" | "B" | null = everyoneDrinks
@@ -566,8 +638,11 @@ function RevealScreen({ dilemma, players, votes, isLastRound, onNext }: RevealSc
     : aVoters.length > bVoters.length
       ? "A"
       : "B";
+
   const winningOption = winningSide === "A" ? dilemma.optionA : dilemma.optionB;
+  const losingOption = winningSide === "A" ? dilemma.optionB : dilemma.optionA;
   const winningVoters = winningSide === "A" ? aVoters : bVoters;
+  const losingVoters = winningSide === "A" ? bVoters : aVoters;
 
   return (
     <motion.div
@@ -577,16 +652,16 @@ function RevealScreen({ dilemma, players, votes, isLastRound, onNext }: RevealSc
       style={{ transformStyle: "preserve-3d" }}
       className="w-full max-w-sm overflow-visible"
     >
-      <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-5 mb-4">
+      <div className="bg-cream/10 backdrop-blur-sm border border-gold/20 rounded-xl p-4 mb-4">
         <p className="font-body text-cream/50 text-xs text-center mb-1">
           Would you rather...
         </p>
         <p className="font-body text-cream/80 text-sm text-center mb-1">
-          <span className={winningSide === "A" ? "text-gold font-bold" : ""}>{dilemma.optionA}</span>
+          {dilemma.optionA}
         </p>
         <p className="font-body text-cream/40 text-xs text-center mb-1">or</p>
         <p className="font-body text-cream/80 text-sm text-center">
-          <span className={winningSide === "B" ? "text-gold font-bold" : ""}>{dilemma.optionB}</span>
+          {dilemma.optionB}
         </p>
       </div>
 
@@ -597,38 +672,68 @@ function RevealScreen({ dilemma, players, votes, isLastRound, onNext }: RevealSc
           transition={{ type: "spring", stiffness: 300 }}
           className="bg-gold/15 border border-gold/30 rounded-xl p-5 mb-4 text-center"
         >
-          <p className="text-4xl mb-2">🍻</p>
           <p className="font-display text-gold text-2xl font-bold mb-1">
-            Everyone drinks!
+            Everyone drinks 🍸
           </p>
           <p className="font-body text-cream/60 text-xs">
-            {isUnanimous ? "Unanimous." : "It's a perfect tie."}
+            {isUnanimous ? "Unanimous." : "Perfect tie."}
           </p>
         </motion.div>
       ) : (
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="bg-felt-dark/40 border border-gold/15 rounded-xl p-4 mb-4"
-        >
-          <p className="font-body text-cream/40 text-xs uppercase tracking-wider text-center mb-2">
-            Majority chose
-          </p>
-          <p className="font-display text-gold text-base font-bold text-center mb-3">
-            {winningOption}
-          </p>
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {winningVoters.map((name) => (
-              <span
-                key={name}
-                className="px-2 py-1 rounded-md bg-gold/15 border border-gold/20 font-body text-cream text-xs"
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-        </motion.div>
+        <div className="flex flex-col gap-3 mb-4">
+          {/* Right answer (winning side) */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="rounded-xl p-4 border-2 border-success-green bg-success-green/15"
+          >
+            <p className="font-body text-cream/70 text-xs uppercase tracking-wider mb-2 text-center">
+              🟢 The Right Answer
+            </p>
+            <p className="font-display text-cream text-base text-center mb-3 leading-snug">
+              {winningOption}
+            </p>
+            <p className="font-body text-cream/40 text-xs text-center mb-2">
+              Voted by:
+            </p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {winningVoters.map((idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-1 rounded-md bg-success-green/30 border border-success-green/50"
+                >
+                  <PlayerName index={idx} size="sm" />
+                </span>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Wrong answer (losing side) */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-xl p-4 border-2 border-alert-red bg-alert-red/15"
+          >
+            <p className="font-body text-cream/70 text-xs uppercase tracking-wider mb-2 text-center">
+              🍸 Wrong, take a sip
+            </p>
+            <p className="font-display text-cream text-base text-center mb-3 leading-snug">
+              {losingOption}
+            </p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {losingVoters.map((idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-1 rounded-md bg-alert-red/30 border border-alert-red/50"
+                >
+                  <PlayerName index={idx} size="sm" />
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        </div>
       )}
 
       <motion.button
