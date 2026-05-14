@@ -24,9 +24,9 @@ interface NumericEndScreenProps {
 interface CustomEndScreenProps {
   variant: "custom";
   emoji: string;
-  resultLabel: string;
+  resultLabel?: string;
   resultValue: ReactNode;
-  message: string;
+  message?: string;
   showCrowns?: boolean;
   onPlayAgain: () => void;
 }
@@ -141,9 +141,9 @@ function SingleBody(props: NumericEndScreenProps | CustomEndScreenProps) {
         {props.resultValue}
       </p>
     );
-    messageNode = (
+    messageNode = props.message ? (
       <p className="font-body text-cream/70 text-base">{props.message}</p>
-    );
+    ) : null;
     crowns = props.showCrowns ?? true;
   } else {
     const tier = getTier(props.score, props.tiers);
@@ -186,7 +186,7 @@ function SingleBody(props: NumericEndScreenProps | CustomEndScreenProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
       >
-        {isCustom && (
+        {isCustom && props.resultLabel && (
           <p className="font-body text-cream/40 text-xs uppercase tracking-wider mb-2">
             {props.resultLabel}
           </p>

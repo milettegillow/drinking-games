@@ -9,6 +9,7 @@ import ModeToggle from "@/components/ModeToggle";
 import ScoreTracker from "@/components/ScoreTracker";
 import EndScreen from "@/components/EndScreen";
 import LoadingState from "@/components/LoadingState";
+import Countdown from "@/components/Countdown";
 import {
   BoldClaimsMode,
   BoldClaimsTrait,
@@ -48,7 +49,6 @@ export default function BoldClaimsPage() {
   const [xArray, setXArray] = useState<number[]>([]);
   const [round, setRound] = useState(1);
   const [roundsWon, setRoundsWon] = useState(0);
-  const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const startTime = useRef<number | null>(null);
   const hasEnded = useRef(false);
@@ -71,36 +71,6 @@ export default function BoldClaimsPage() {
       posthog.capture("game_session_end", props);
     };
   }, []);
-
-  // Countdown effect: 3 then 2 then 1 then outcome (~800ms each, vibrate per tick).
-  // The setState calls here are synchronising React state with a timer (an external
-  // system), which is the legitimate use case for an effect.
-  useEffect(() => {
-    if (phase !== "countdown") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCountdownValue(null);
-      return;
-    }
-    setCountdownValue(3);
-    vibrate(50);
-    const t1 = setTimeout(() => {
-      setCountdownValue(2);
-      vibrate(50);
-    }, 800);
-    const t2 = setTimeout(() => {
-      setCountdownValue(1);
-      vibrate(50);
-    }, 1600);
-    const t3 = setTimeout(() => {
-      setCountdownValue(null);
-      setPhase("outcome");
-    }, 2400);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [phase]);
 
   const currentTrait = traits[0];
   const currentX = xArray[round - 1] ?? 1;
@@ -449,23 +419,7 @@ export default function BoldClaimsPage() {
               className="w-full max-w-sm flex flex-col items-center gap-6"
             >
               {renderPromptCard()}
-              <div className="flex-1 flex items-center justify-center min-h-[180px]">
-                <AnimatePresence mode="wait">
-                  {countdownValue !== null && (
-                    <motion.span
-                      key={countdownValue}
-                      initial={{ scale: 0.4, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 1.6, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                      className="font-display text-gold font-bold leading-none"
-                      style={{ fontSize: "clamp(8rem, 32vw, 12rem)" }}
-                    >
-                      {countdownValue}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
+              <Countdown onComplete={() => setPhase("outcome")} />
             </motion.div>
           )}
 
