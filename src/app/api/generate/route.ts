@@ -12,6 +12,7 @@ const VALID_GAMES: GameId[] = [
 ];
 
 export async function POST(request: Request) {
+  let text = "";
   try {
     const body: GenerateRequest = await request.json();
 
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
 
     const message = await client.messages.create({
       model: "claude-sonnet-5-5",
-      max_tokens: 2048,
+      max_tokens: 4096,
+      output_config: { effort: "low" },
       system: getSystemPrompt(),
       messages: [
         {
@@ -40,12 +42,18 @@ export async function POST(request: Request) {
       ],
     });
 
-    const text =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const textBlock = message.content.find(
+      (block): block is Anthropic.TextBlock => block.type === "text"
+    );
+    text = textBlock?.text ?? "";
 
     // Extract JSON from response (handle potential markdown fencing)
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
+      console.error("Generate API: no JSON array in response", {
+        stop_reason: message.stop_reason,
+        rawText: text,
+      });
       return Response.json(
         { error: "Failed to parse response" },
         { status: 500 }
@@ -57,6 +65,9 @@ export async function POST(request: Request) {
     return Response.json({ items });
   } catch (error) {
     console.error("Generate API error:", error);
+    if (error instanceof SyntaxError) {
+      console.error("Generate API: failed to parse raw text:", text);
+    }
     return Response.json(
       { error: "Shuffling the deck... try again!" },
       { status: 500 }
